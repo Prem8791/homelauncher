@@ -391,8 +391,9 @@ class MainActivity : AppCompatActivity() {
         notificationPlaceholder.text = getString(R.string.no_notifications)
         notificationPlaceholder.setOnClickListener(null)
 
-        if (expandedPackage != null && packages.containsKey(expandedPackage)) {
-            showExpandedNotifications(expandedPackage!!)
+        val currentExpandedPackage = expandedPackage
+        if (currentExpandedPackage != null && packages.containsKey(currentExpandedPackage)) {
+            showExpandedNotifications(currentExpandedPackage)
             return
         }
         expandedPackage = null

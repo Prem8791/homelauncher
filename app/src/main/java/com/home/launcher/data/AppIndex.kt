@@ -17,7 +17,7 @@ class AppIndex(private val context: Context) {
     private var appMap: MutableMap<Char, MutableList<AppEntry>> = mutableMapOf()
     private var favourites: MutableList<AppEntry> = mutableListOf()
     private var numericApps: MutableList<AppEntry> = mutableListOf()
-    private var allApps: List<AppEntry> = emptyList()
+    private var allApps: List<AppEntry> = emptyList<AppEntry>()
     private var isLoaded = false
 
     fun load() {
@@ -57,7 +57,7 @@ class AppIndex(private val context: Context) {
         }
 
         val prefs = context.getSharedPreferences("favourites", Context.MODE_PRIVATE)
-        val favSet = prefs.getStringSet("favs", emptySet()) ?: emptySet()
+        val favSet = prefs.getStringSet("favs", emptySet<String>()) ?: emptySet<String>()
         favourites = entries.filter { it.packageName in favSet }
             .toMutableList()
 
@@ -69,15 +69,15 @@ class AppIndex(private val context: Context) {
         return when {
             letter == '#' -> numericApps
             letter == '*' -> favourites
-            letter in 'A'..'Z' -> appMap[letter] ?: emptyList()
-            else -> emptyList()
+            letter in 'A'..'Z' -> appMap[letter] ?: emptyList<AppEntry>()
+            else -> emptyList<AppEntry>()
         }
     }
 
     fun toggleFavourite(packageName: String) {
         val entry = allApps.find { it.packageName == packageName } ?: return
         val prefs = context.getSharedPreferences("favourites", Context.MODE_PRIVATE)
-        val favSet = prefs.getStringSet("favs", emptySet())?.toMutableSet() ?: mutableSetOf()
+        val favSet = prefs.getStringSet("favs", emptySet<String>())?.toMutableSet() ?: mutableSetOf<String>()
         if (favSet.contains(packageName)) {
             favSet.remove(packageName)
             favourites.removeAll { it.packageName == packageName }

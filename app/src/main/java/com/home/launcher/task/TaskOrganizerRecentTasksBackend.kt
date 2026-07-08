@@ -12,7 +12,7 @@ import android.util.Log
 class TaskOrganizerRecentTasksBackend : RecentTasksBackend {
     override fun getRecentTasks(maxNum: Int): List<RecentTask> {
         Log.w(TAG, "TaskOrganizer backend is not implemented yet")
-        return emptyList()
+        return emptyList<RecentTask>()
     }
 
     override fun removeTask(taskId: Int): Boolean = false

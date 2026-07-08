@@ -86,9 +86,10 @@ class SystemStatsProvider(private val context: Context) {
             val currentTicks = longArrayOf(user, nice, system, idle)
             val currentTime = SystemClock.elapsedRealtime()
 
-            if (lastCpuTicks != null && lastCpuTime > 0) {
-                val deltaIdle = idle - lastCpuTicks!![3]
-                val deltaTotal = total - lastCpuTicks!!.sum()
+            val previousTicks = lastCpuTicks
+            if (previousTicks != null && lastCpuTime > 0) {
+                val deltaIdle = idle - previousTicks[3]
+                val deltaTotal = total - previousTicks.sum()
 
                 val percent = if (deltaTotal > 0) {
                     ((deltaTotal - deltaIdle) * 100) / deltaTotal

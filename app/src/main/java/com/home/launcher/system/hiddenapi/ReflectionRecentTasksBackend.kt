@@ -17,9 +17,9 @@ class ReflectionRecentTasksBackend(private val context: Context) : RecentTasksBa
         get() = HiddenApiBridge.activityTaskManager
 
     override fun getRecentTasks(maxNum: Int): List<RecentTask> {
-        val service = iAtm ?: return emptyList()
+        val service = iAtm ?: return emptyList<RecentTask>()
         val raw = HiddenApiBridge.invoke(service, "getRecentTasks", maxNum, RECENT_WITH_EXCLUDED, USER_CURRENT)
-        val taskList = unwrapParceledList(raw) ?: return emptyList()
+        val taskList = unwrapParceledList(raw) ?: return emptyList<RecentTask>()
         return parseRecentTasks(taskList)
     }
 
@@ -161,9 +161,9 @@ class ReflectionRecentTasksBackend(private val context: Context) : RecentTasksBa
     }
 
     private fun parseRecentTasks(taskList: List<*>): List<RecentTask> {
-        val taskInfoClass = HiddenApiBridge.classForName("android.app.TaskInfo") ?: return emptyList()
-        val fTaskId = runCatching { taskInfoClass.getField("taskId") }.getOrNull() ?: return emptyList()
-        val fBaseIntent = runCatching { taskInfoClass.getField("baseIntent") }.getOrNull() ?: return emptyList()
+        val taskInfoClass = HiddenApiBridge.classForName("android.app.TaskInfo") ?: return emptyList<RecentTask>()
+        val fTaskId = runCatching { taskInfoClass.getField("taskId") }.getOrNull() ?: return emptyList<RecentTask>()
+        val fBaseIntent = runCatching { taskInfoClass.getField("baseIntent") }.getOrNull() ?: return emptyList<RecentTask>()
         val fUserId = runCatching { taskInfoClass.getField("userId") }.getOrNull()
         val fTaskDescription = runCatching { taskInfoClass.getField("taskDescription") }.getOrNull()
 
