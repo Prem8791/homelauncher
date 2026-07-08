@@ -4,10 +4,8 @@
 
 PRODUCT_PACKAGES += \
     HomeLauncher \
+    HomeLauncherConfigOverlay \
     privapp-permissions-com.home.launcher
-
-# Mandatory only after HomeLauncher implements android.intent.action.QUICKSTEP_SERVICE:
-# PRODUCT_PACKAGES += HomeLauncherConfigOverlay
 
 # Optional final-ROM cleanup after HomeLauncher replaces Launcher3/QuickStep:
 # PRODUCT_PACKAGES := $(filter-out Launcher3QuickStep,$(PRODUCT_PACKAGES))

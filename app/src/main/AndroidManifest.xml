@@ -49,6 +49,11 @@
             </intent-filter>
         </activity>
 
+        <activity-alias
+            android:name=".RecentsActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity" />
+
         <service
             android:name=".service.NotificationListener"
             android:exported="true"
