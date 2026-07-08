@@ -35,6 +35,8 @@ import kotlin.math.roundToInt
 import com.home.launcher.data.AppIndex
 import com.home.launcher.service.NotificationEntry
 import com.home.launcher.service.NotificationListener
+import com.home.launcher.task.RecentTasksRepository
+import com.home.launcher.task.TaskListenerRegistration
 import com.home.launcher.ui.AppListOverlay
 import com.home.launcher.ui.SystemStatsBar
 import java.text.SimpleDateFormat
@@ -61,9 +63,9 @@ class MainActivity : AppCompatActivity() {
 
     // Data
     private val appIndex by lazy { AppIndex(this) }
+    private val recentTasksRepository by lazy { RecentTasksRepository(this) }
     private lateinit var statsBar: SystemStatsBar
-    private val taskListenerTag = "launcher_task_listener"
-    private var taskStackListener: Any? = null
+    private var taskListenerRegistration: TaskListenerRegistration? = null
     private val handler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
@@ -202,7 +204,8 @@ class MainActivity : AppCompatActivity() {
         recentAppsAdapter = RecentAppsAdapter(
             context = this,
             onClose = { tile -> closeTask(tile) },
-            onResume = { tile -> resumeTask(tile) }
+            onResume = { tile -> resumeTask(tile) },
+            thumbnailLoader = { taskId -> recentTasksRepository.getTaskSnapshot(taskId, false) }
         )
 
         val glm = GridLayoutManager(this, 3, RecyclerView.VERTICAL, false)
@@ -224,7 +227,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshRecentTasks() {
-        val tasks = HiddenApi.getRecentTasks(30).filter { it.packageName != packageName }
+        val tasks = recentTasksRepository.getRecentTasks(30).filter { it.packageName != packageName }
         val tiles = tasks.map { task ->
             RecentTaskTile(
                 taskId = task.taskId,
@@ -239,12 +242,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun closeTask(tile: RecentTaskTile) {
-        HiddenApi.removeTask(tile.taskId)
+        recentTasksRepository.removeTask(tile.taskId)
         recentAppsAdapter.removeTile(tile.taskId)
     }
 
     private fun resumeTask(tile: RecentTaskTile) {
-        val started = HiddenApi.startActivityFromRecents(tile.taskId)
+        val started = recentTasksRepository.startTaskFromRecents(tile.taskId)
         if (!started) {
             try {
                 val intent = packageManager.getLaunchIntentForPackage(tile.packageName)
@@ -269,12 +272,12 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("Kill All") { _, _ ->
                     var killedCount = 0
                     for (tile in tiles) {
-                        if (HiddenApi.forceStopPackage(this, tile.packageName)) {
+                        if (recentTasksRepository.forceStopPackage(tile.packageName)) {
                             killedCount++
                         }
-                        HiddenApi.removeTask(tile.taskId)
+                        recentTasksRepository.removeTask(tile.taskId)
                     }
-                    HiddenApi.removeAllRecentTasks()
+                    recentTasksRepository.removeAllVisibleRecentTasks()
                     recentAppsAdapter.clearAll()
                     Toast.makeText(this, "Killed $killedCount app(s)", Toast.LENGTH_SHORT).show()
                 }
@@ -345,16 +348,16 @@ class MainActivity : AppCompatActivity() {
     // ============ TASK LISTENER ============
 
     private fun registerTaskListener() {
-        if (taskStackListener == null) {
-            taskStackListener = HiddenApi.buildTaskStackListener {
+        if (taskListenerRegistration == null) {
+            taskListenerRegistration = recentTasksRepository.registerTaskChangeListener {
                 runOnUiThread { refreshRecentTasks() }
             }
         }
-        taskStackListener?.let { HiddenApi.registerTaskStackListener(it) }
     }
 
     private fun unregisterTaskListener() {
-        taskStackListener?.let { HiddenApi.unregisterTaskStackListener(it) }
+        taskListenerRegistration?.unregister()
+        taskListenerRegistration = null
     }
 
     // ============ NOTIFICATIONS ============

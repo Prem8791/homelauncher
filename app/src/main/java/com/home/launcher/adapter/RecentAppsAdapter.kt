@@ -2,16 +2,13 @@ package com.home.launcher.adapter
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.util.DisplayMetrics
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.home.launcher.HiddenApi
 import com.home.launcher.R
 
 data class RecentTaskTile(
@@ -24,7 +21,8 @@ data class RecentTaskTile(
 class RecentAppsAdapter(
     private val context: Context,
     private val onClose: (RecentTaskTile) -> Unit,
-    private val onResume: (RecentTaskTile) -> Unit
+    private val onResume: (RecentTaskTile) -> Unit,
+    private val thumbnailLoader: (Int) -> Bitmap?
 ) : RecyclerView.Adapter<RecentAppsAdapter.TileViewHolder>() {
 
     private val tiles = mutableListOf<RecentTaskTile>()
@@ -86,7 +84,7 @@ class RecentAppsAdapter(
             val tile = tiles[i]
             val cached = thumbnailCache[tile.taskId]
             if (cached == null && tile.taskId > 0) {
-                val bmp = HiddenApi.getTaskSnapshot(tile.taskId, false)
+                val bmp = thumbnailLoader(tile.taskId)
                 thumbnailCache[tile.taskId] = bmp
                 notifyItemChanged(i)
             }
@@ -117,10 +115,10 @@ class RecentAppsAdapter(
         private val closeButton: ImageButton = itemView.findViewById(R.id.tileCloseButton)
 
         fun bind(tile: RecentTaskTile) {
-            val label = tile.appLabel ?: HiddenApi.getAppLabelForTask(context, tile.packageName) ?: tile.packageName
+            val label = tile.appLabel ?: getAppLabel(tile.packageName)
             appLabel.text = label
 
-            val icon = HiddenApi.getAppIconForTask(context, tile.packageName)
+            val icon = getAppIcon(tile.packageName)
             if (icon != null) {
                 appIcon.setImageDrawable(icon)
             }
@@ -140,6 +138,19 @@ class RecentAppsAdapter(
 
             val taskIdView: TextView = itemView.findViewById(R.id.tileTaskId)
             taskIdView.text = "#${tile.taskId}"
+        }
+
+        private fun getAppIcon(packageName: String) = try {
+            context.packageManager.getApplicationIcon(packageName)
+        } catch (e: Exception) {
+            null
+        }
+
+        private fun getAppLabel(packageName: String): String = try {
+            val info = context.packageManager.getApplicationInfo(packageName, 0)
+            context.packageManager.getApplicationLabel(info).toString()
+        } catch (e: Exception) {
+            packageName
         }
     }
 }
