@@ -137,10 +137,10 @@ class MainActivity : AppCompatActivity() {
     // ============ VIEW INITIALIZATION ============
 
     private fun initViews() {
-        rootLayout = findViewById(R.id.rootLayout)
-        leftColumn = findViewById(R.id.leftColumn)
-        centerColumn = findViewById(R.id.centerColumn)
-        rightColumn = findViewById(R.id.rightColumn)
+        rootLayout = findViewById<LinearLayout>(R.id.rootLayout)
+        leftColumn = findViewById<LinearLayout>(R.id.leftColumn)
+        centerColumn = findViewById<LinearLayout>(R.id.centerColumn)
+        rightColumn = findViewById<LinearLayout>(R.id.rightColumn)
     }
 
     // ============ ALPHABET COLUMNS ============
@@ -198,8 +198,8 @@ class MainActivity : AppCompatActivity() {
     // ============ RECENT APPS ============
 
     private fun initRecentApps() {
-        recentAppsGrid = findViewById(R.id.recentAppsGrid)
-        killAllButton = findViewById(R.id.killAllButton)
+        recentAppsGrid = findViewById<RecyclerView>(R.id.recentAppsGrid)
+        killAllButton = findViewById<TextView>(R.id.killAllButton)
 
         recentAppsAdapter = RecentAppsAdapter(
             context = this,
@@ -363,9 +363,9 @@ class MainActivity : AppCompatActivity() {
     // ============ NOTIFICATIONS ============
 
     private fun initNotifications() {
-        notificationContainer = findViewById(R.id.notificationIcons)
-        notificationPlaceholder = findViewById(R.id.notificationPlaceholder)
-        notificationScroll = findViewById(R.id.notificationScroll)
+        notificationContainer = findViewById<LinearLayout>(R.id.notificationIcons)
+        notificationPlaceholder = findViewById<TextView>(R.id.notificationPlaceholder)
+        notificationScroll = findViewById<View>(R.id.notificationScroll)
 
         val enabledListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
         val ourComponent = "$packageName/.service.NotificationListener"
@@ -556,9 +556,9 @@ class MainActivity : AppCompatActivity() {
     // ============ TODAY SECTION ============
 
     private fun initToday() {
-        todayDate = findViewById(R.id.todayDate)
-        todayEvent = findViewById(R.id.todayEvent)
-        todayTasks = findViewById(R.id.todayTasks)
+        todayDate = findViewById<TextView>(R.id.todayDate)
+        todayEvent = findViewById<TextView>(R.id.todayEvent)
+        todayTasks = findViewById<TextView>(R.id.todayTasks)
         refreshToday()
     }
 
@@ -634,11 +634,11 @@ class MainActivity : AppCompatActivity() {
     private fun initStatsBar() {
         statsBar = SystemStatsBar(
             context = this,
-            batteryView = findViewById(R.id.statBattery),
-            ramView = findViewById(R.id.statRam),
-            cpuView = findViewById(R.id.statCpu),
-            tempView = findViewById(R.id.statTemp),
-            storageView = findViewById(R.id.statStorage)
+            batteryView = findViewById<TextView>(R.id.statBattery),
+            ramView = findViewById<TextView>(R.id.statRam),
+            cpuView = findViewById<TextView>(R.id.statCpu),
+            tempView = findViewById<TextView>(R.id.statTemp),
+            storageView = findViewById<TextView>(R.id.statStorage)
         )
 
         findViewById<LinearLayout>(R.id.statusStatsCenter).setOnClickListener {
