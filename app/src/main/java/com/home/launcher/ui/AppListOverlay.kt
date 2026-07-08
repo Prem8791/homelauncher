@@ -23,9 +23,9 @@ class AppListOverlay {
             val builder = AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
             val view = LayoutInflater.from(activity).inflate(R.layout.overlay_app_list, null)
 
-            val titleView: TextView = view.findViewById<TextView>(R.id.overlayTitle)
-            val recyclerView: RecyclerView = view.findViewById<RecyclerView>(R.id.overlayAppList)
-            val closeButton: View = view.findViewById<View>(R.id.overlayClose)
+            val titleView: TextView = view.findViewById<TextView>(R.id.overlayTitle)!!
+            val recyclerView: RecyclerView = view.findViewById<RecyclerView>(R.id.overlayAppList)!!
+            val closeButton: View = view.findViewById<View>(R.id.overlayClose)!!
 
             titleView.text = title
 
@@ -85,9 +85,9 @@ class AppListOverlay {
         override fun getItemCount(): Int = apps.size
 
         class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            private val icon: ImageView = itemView.findViewById<ImageView>(R.id.appItemIcon)
-            private val label: TextView = itemView.findViewById<TextView>(R.id.appItemLabel)
-            private val favIndicator: View = itemView.findViewById<View>(R.id.appItemFav)
+            private val icon: ImageView = itemView.findViewById<ImageView>(R.id.appItemIcon)!!
+            private val label: TextView = itemView.findViewById<TextView>(R.id.appItemLabel)!!
+            private val favIndicator: View = itemView.findViewById<View>(R.id.appItemFav)!!
 
             fun bind(entry: AppEntry, onTap: (AppEntry) -> Unit) {
                 label.text = entry.label

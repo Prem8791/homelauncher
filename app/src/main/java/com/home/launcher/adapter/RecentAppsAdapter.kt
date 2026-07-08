@@ -109,10 +109,10 @@ class RecentAppsAdapter(
     override fun getItemCount(): Int = tiles.size
 
     inner class TileViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val thumbnail: ImageView = itemView.findViewById<ImageView>(R.id.tileThumbnail)
-        private val appIcon: ImageView = itemView.findViewById<ImageView>(R.id.tileAppIcon)
-        private val appLabel: TextView = itemView.findViewById<TextView>(R.id.tileAppLabel)
-        private val closeButton: ImageButton = itemView.findViewById<ImageButton>(R.id.tileCloseButton)
+        private val thumbnail: ImageView = itemView.findViewById<ImageView>(R.id.tileThumbnail)!!
+        private val appIcon: ImageView = itemView.findViewById<ImageView>(R.id.tileAppIcon)!!
+        private val appLabel: TextView = itemView.findViewById<TextView>(R.id.tileAppLabel)!!
+        private val closeButton: ImageButton = itemView.findViewById<ImageButton>(R.id.tileCloseButton)!!
 
         fun bind(tile: RecentTaskTile) {
             val label = tile.appLabel ?: getAppLabel(tile.packageName)
@@ -136,7 +136,7 @@ class RecentAppsAdapter(
             closeButton.setOnClickListener { onClose(tile) }
             itemView.setOnClickListener { onResume(tile) }
 
-            val taskIdView: TextView = itemView.findViewById<TextView>(R.id.tileTaskId)
+            val taskIdView: TextView = itemView.findViewById<TextView>(R.id.tileTaskId)!!
             taskIdView.text = "#${tile.taskId}"
         }
 
