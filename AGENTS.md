@@ -5,6 +5,23 @@
 .\gradlew assembleDebug
 ```
 
+## AOSP / Soong Kotlin Compatibility Checks
+
+When changing Kotlin source that may later be built inside Android 14 AOSP/Soong:
+
+- Do not rely on Gradle-only Kotlin inference for Android platform generic APIs.
+- Use explicit generic types for every `findViewById` call, for example `findViewById<TextView>(R.id.title)` or `itemView.findViewById<ImageView>(R.id.icon)`.
+- After edits, scan for untyped view lookups:
+```
+rg --pcre2 "findViewById\((?!<)" app hidden-api-probe
+```
+- Treat any match as a source compatibility issue unless it is Java code or is otherwise proven safe for the AOSP Kotlin compiler.
+- Prefer type-safe calls over unsafe casts. Do not change application behavior while fixing Soong/Kotlin compatibility issues.
+- Run a clean local build after compatibility fixes:
+```
+.\gradlew clean assembleDebug
+```
+
 ## Sign with platform keys
 ```
 apksigner sign --key platform.pk8 --cert platform.x509.pem --out app\build\outputs\apk\debug\app-platform-signed.apk app\build\outputs\apk\debug\app-debug.apk
