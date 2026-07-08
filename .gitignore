@@ -26,6 +26,13 @@ bundletool.jar
 *.tmp
 *.log
 
+# Generated migration/deployment packages
+HomeLauncher_AOSP_Deployment_*/
+HomeLauncher_AOSP_Deployment_*.zip
+HomeLauncher_AOSP_Source/
+HomeLauncher_AOSP_Source.zip
+_readonly_source/
+
 # OS noise
 Thumbs.db
 desktop.ini
