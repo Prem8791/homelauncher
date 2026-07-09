@@ -181,13 +181,75 @@ New file. Contains the original first-boot logcat analysis (SELinux proc_stat, r
 
 ---
 
+## ROM Integration Patches
+
+Two new patches require OTA rebuild to take effect. Both are plain `git diff`-format patches and must be applied with `git apply`, not `git am`.
+
+### `0007-integrate-home-launcher-product-mk.patch`
+
+**Target**: `device/asus/I001D/bliss_I001D.mk`
+
+Adds the `inherit-product` line so that `HomeLauncherConfigOverlay` and `privapp-permissions-com.home.launcher` are included in the I001D build. Without this, the overlay never installs and `mRecentsComponent` stays on Launcher3.
+
+```patch
++$(call inherit-product, packages/apps/HomeLauncher/rom-integration/product/home_launcher_product.mk)
+```
+
+**Verification** (after OTA):
+```
+adb shell dumpsys activity recents | grep mRecentsComponent
+# Expect: ComponentInfo{com.home.launcher/com.home.launcher.RecentsActivity}
+```
+
+### `0008-add-active-home-launcher-proc-stat-sepolicy.patch`
+
+**Target**: `system/sepolicy/private/platform_app_home_launcher.te`
+
+Installs the active SELinux rule granting `platform_app` read access to `/proc/stat`. This rule previously existed only inside `rom-integration/` documentation; it must be applied to the ROM tree to stop the AVC denial storm.
+
+```patch
++allow platform_app proc_stat:file r_file_perms;
+```
+
+**Verification** (after OTA):
+```
+adb shell sesearch --allow -s platform_app -t proc_stat -c file -p read
+# Expect: allow platform_app proc_stat:file { read }
+```
+
+### Applying patches on the VM
+
+The patches are plain `git diff`-format files without commit headers. Use `git apply`:
+
+```sh
+cd ~/android/bliss-I001D
+git apply < packages/apps/HomeLauncher/rom-integration/patches/0007-integrate-home-launcher-product-mk.patch
+git apply < packages/apps/HomeLauncher/rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch
+```
+
+Then rebuild full OTA:
+```sh
+make otapackage -j$(nproc)
+```
+
+---
+
+## Template Rename
+
+`rom-integration/aosp/Android.bp` was renamed to `Android.bp.template` in commit `e09fb1a`.
+
+**Why**: Any file named `Android.bp` under `packages/apps/HomeLauncher` is parsed by Soong. The root `Android.bp` is the active module definition. The `aosp/` copy is a documentation-only reference — the `.template` suffix prevents accidental Soong double-definition errors.
+
+The root `Android.bp` remains the authoritative module for the AOSP build.
+
+---
+
 ## Items Not Yet Implemented
 
 | Gap | Reason | Tracking |
 |-----|--------|----------|
 | Background thread for I/O/reflection | Requires coroutines or thread-switch refactor beyond this pass | `communication.md` §5 |
 | TaskOrganizer backend | Stub only; blocked on `mRecentsComponent` verification | `communication.md` Issue 2 |
-| SELinux proc_stat rule integration | ROM-side work; patch exists but must be baked into OTA | `communication.md` Issue 1 |
 
 ---
 

@@ -80,41 +80,70 @@ grep -n 'certificate: "platform"' packages/apps/HomeLauncher/Android.bp
 grep -n 'privileged: true' packages/apps/HomeLauncher/Android.bp
 ```
 
-## 3. Modify Product Configuration
+## 3. Apply Product Configuration Patch
 
-Edit the target product makefile, for example one of:
+Apply the patch that adds the `inherit-product` line to `device/asus/I001D/bliss_I001D.mk`:
 
-```text
-device/<vendor>/<product>/<product>.mk
-vendor/bliss/config/common.mk
-vendor/bliss/config/common_full_phone.mk
+```sh
+git apply < packages/apps/HomeLauncher/rom-integration/patches/0007-integrate-home-launcher-product-mk.patch
 ```
 
-Add:
-
-```make
-PRODUCT_PACKAGES += \
-    HomeLauncher \
-    privapp-permissions-com.home.launcher
-```
+This includes `HomeLauncher`, `HomeLauncherConfigOverlay`, and `privapp-permissions-com.home.launcher` in `PRODUCT_PACKAGES` via the `home_launcher_product.mk` makefile fragment.
 
 Expected outcome:
 
 ```text
+Inherit line present in device/asus/I001D/bliss_I001D.mk
 HomeLauncher selected in PRODUCT_PACKAGES
+HomeLauncherConfigOverlay selected in PRODUCT_PACKAGES
 privapp allowlist XML selected in PRODUCT_PACKAGES
 ```
 
 Rollback:
 
-```text
-Remove the two PRODUCT_PACKAGES entries.
+```sh
+patch -R < packages/apps/HomeLauncher/rom-integration/patches/0007-integrate-home-launcher-product-mk.patch
 ```
 
 Validate:
 
 ```sh
+grep -n "home_launcher_product" device/asus/I001D/bliss_I001D.mk
 grep -R "HomeLauncher" device vendor -n | head
+```
+
+## 3.5. Apply Active SELinux Policy Patch
+
+Apply the patch that adds the `proc_stat` rule to active ROM sepolicy:
+
+```sh
+git apply < packages/apps/HomeLauncher/rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch
+```
+
+This creates `system/sepolicy/private/platform_app_home_launcher.te` with:
+
+```
+allow platform_app proc_stat:file r_file_perms;
+```
+
+Expected outcome:
+
+```text
+File exists at system/sepolicy/private/platform_app_home_launcher.te
+Rule compiled into sepolicy after full build
+```
+
+Rollback:
+
+```sh
+rm system/sepolicy/private/platform_app_home_launcher.te
+```
+
+Validate after build:
+
+```sh
+adb shell sesearch --allow -s platform_app -t proc_stat -c file -p read
+# Expect: allow platform_app proc_stat:file { read }
 ```
 
 ## 4. Build Only The Launcher

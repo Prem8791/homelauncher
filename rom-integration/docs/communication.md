@@ -49,16 +49,21 @@ A policy file exists at `rom-integration/sepolicy/private/platform_app_home_laun
 allow platform_app proc_stat:file r_file_perms;
 ```
 
-**The rule existing under `rom-integration/` is not enough. It must be copied/applied into the active ROM sepolicy and included in the flashed OTA.** Patch `0006-deferred-selinux-proc-thermal.patch` writes it to `system/sepolicy/private/`, but that only lands it in the HomeLauncher source tree — the ROM build must also pick it up.
+**The rule existing under `rom-integration/` is not enough. It must be applied into the active ROM sepolicy and included in the flashed OTA.**
+
+An active patch is now provided at `rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch`. This creates `system/sepolicy/private/platform_app_home_launcher.te` in the ROM tree — the same rule as before, but now delivered as a `git apply`-ready patch that targets the correct sepolicy path.
 
 ### Next Steps
 
-1. Confirm the patch was applied in the VM's AOSP tree at `system/sepolicy/private/platform_app_home_launcher.te`.
+1. Apply the patch in the VM AOSP tree:
+   ```sh
+   git apply < packages/apps/HomeLauncher/rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch
+   ```
 2. Verify the rule compiles into sepolicy:
    ```sh
    adb shell sesearch --allow -s platform_app -t proc_stat -c file -p read
    ```
-3. If absent, rebuild the full OTA with the patch applied (`make otapackage`) and reflash. Rebuilding `sepolicy` alone is insufficient; the OTA must be regenerated from scratch.
+3. If absent, rebuild the full OTA (`make otapackage`) and reflash. Rebuilding `sepolicy` alone is insufficient; the OTA must be regenerated from scratch.
 
 ---
 
