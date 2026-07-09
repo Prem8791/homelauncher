@@ -82,8 +82,7 @@ class RecentAppsAdapter(
     private fun refreshThumbnails() {
         for (i in tiles.indices) {
             val tile = tiles[i]
-            val cached = thumbnailCache[tile.taskId]
-            if (cached == null && tile.taskId > 0) {
+            if (tile.taskId > 0) {
                 val bmp = thumbnailLoader(tile.taskId)
                 thumbnailCache[tile.taskId] = bmp
                 notifyItemChanged(i)

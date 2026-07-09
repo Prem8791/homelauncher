@@ -192,12 +192,12 @@
             android:orientation="vertical"
             android:weightSum="100">
 
-            <!-- Recent Area (90%) -->
+            <!-- Recent Area -->
             <RelativeLayout
                 android:id="@+id/recentAppsRow"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="90"
+                android:layout_weight="80"
                 android:background="@color/background">
 
                 <androidx.recyclerview.widget.RecyclerView
@@ -211,8 +211,9 @@
             <!-- Section Boundary -->
             <View style="@style/SectionBoundary" />
 
-            <!-- Status Area (10%) - three columns: left (kill all), center (stats), right (settings) -->
+            <!-- Status Area - three columns: left (kill all), center (stats), right (settings) -->
             <LinearLayout
+                android:id="@+id/statusArea"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="10"
@@ -318,6 +319,22 @@
                         android:textSize="16sp" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- Section Boundary -->
+            <View style="@style/SectionBoundary" />
+
+            <!-- Dock Area -->
+            <LinearLayout
+                android:id="@+id/dockContainer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="10"
+                android:background="@color/dock_bg"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="4dp"
+                android:weightSum="5" />
         </LinearLayout>
 
         <!-- Vertical Boundary -->

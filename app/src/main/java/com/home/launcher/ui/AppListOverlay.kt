@@ -11,7 +11,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.home.launcher.R
 import com.home.launcher.data.AppEntry
@@ -31,7 +31,7 @@ class AppListOverlay {
 
             val dialog = builder.setView(view).create()
 
-            recyclerView.layoutManager = LinearLayoutManager(activity)
+            recyclerView.layoutManager = GridLayoutManager(activity, 4)
             recyclerView.adapter = AppListAdapter(apps) { entry ->
                 try {
                     val intent = activity.packageManager.getLaunchIntentForPackage(entry.packageName)

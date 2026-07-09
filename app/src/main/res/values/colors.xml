@@ -11,6 +11,7 @@
     <color name="divider">#15FFFFFF</color>
     <color name="section_boundary">#18FFFFFF</color>
     <color name="stats_bar_bg">#00000000</color>
+    <color name="dock_bg">#33000000</color>
     <color name="notification_badge">#FFE94560</color>
     <color name="alphabet_letter">#FFFFFFFF</color>
     <color name="alphabet_letter_selected">#FFE94560</color>

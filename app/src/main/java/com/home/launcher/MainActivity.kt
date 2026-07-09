@@ -1,6 +1,8 @@
 package com.home.launcher
 
 import android.app.ActivityManager
+import android.Manifest
+import android.content.ContentUris
 import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
@@ -15,17 +17,21 @@ import android.util.Log
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.home.launcher.animation.MorphConfig
+import com.home.launcher.animation.MorphingEngine
 import com.home.launcher.adapter.RecentAppsAdapter
 import com.home.launcher.adapter.RecentTaskTile
 import kotlin.math.roundToInt
@@ -45,6 +51,11 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     private companion object {
         const val REQUEST_PICK_WALLPAPER_IMAGE = 1001
+        const val PREFS_DOCK = "dock"
+        const val KEY_DOCK_HEIGHT_PERCENT = "dock_height_percent"
+        const val DEFAULT_DOCK_HEIGHT_PERCENT = 10
+        const val STATUS_HEIGHT_PERCENT = 10
+        const val DOCK_SLOT_COUNT = 5
     }
 
     // Layout references
@@ -52,15 +63,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var centerColumn: LinearLayout
     private lateinit var rightColumn: LinearLayout
     private lateinit var rootLayout: LinearLayout
+    private lateinit var recentAppsRow: View
     private lateinit var recentAppsGrid: RecyclerView
     private lateinit var recentAppsAdapter: RecentAppsAdapter
     private lateinit var killAllButton: TextView
+    private lateinit var statusArea: LinearLayout
+    private lateinit var dockContainer: LinearLayout
     private lateinit var notificationContainer: LinearLayout
     private lateinit var notificationPlaceholder: TextView
     private lateinit var notificationScroll: View
     private lateinit var todayDate: TextView
     private lateinit var todayEvent: TextView
     private lateinit var todayTasks: TextView
+    private lateinit var morphingEngine: MorphingEngine
 
     // Data
     private val appIndex by lazy { AppIndex(this) }
@@ -110,6 +125,7 @@ class MainActivity : AppCompatActivity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
         setContentView(R.layout.activity_main)
+        initMorphingEngine()
 
         initViews()
         initAlphabetColumns()
@@ -121,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         initStatsBar()
 
         appIndex.load()
+        initDock()
         updateAlphabetAvailability()
     }
 
@@ -163,13 +180,57 @@ class MainActivity : AppCompatActivity() {
         NotificationListener.removeChangeListener(notificationChangeListener)
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (
+            event.action == MotionEvent.ACTION_DOWN &&
+            expandedPackage != null &&
+            ::notificationScroll.isInitialized
+        ) {
+            val notificationBounds = android.graphics.Rect()
+            notificationScroll.getGlobalVisibleRect(notificationBounds)
+            val touchedNotifications = notificationBounds.contains(
+                event.rawX.toInt(),
+                event.rawY.toInt()
+            )
+            if (!touchedNotifications) {
+                expandedPackage = null
+                expandedContainer = null
+                updateNotificationIcons()
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+    @Deprecated("Uses legacy back handling for platform compatibility with the AOSP build target.")
+    override fun onBackPressed() {
+        if (::morphingEngine.isInitialized && morphingEngine.isExpanded) {
+            morphingEngine.collapse()
+            return
+        }
+        super.onBackPressed()
+    }
+
     // ============ VIEW INITIALIZATION ============
+
+    private fun initMorphingEngine() {
+        morphingEngine = MorphingEngine(this)
+        addContentView(
+            morphingEngine,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
 
     private fun initViews() {
         rootLayout = findViewById<LinearLayout>(R.id.rootLayout)!!
         leftColumn = findViewById<LinearLayout>(R.id.leftColumn)!!
         centerColumn = findViewById<LinearLayout>(R.id.centerColumn)!!
         rightColumn = findViewById<LinearLayout>(R.id.rightColumn)!!
+        recentAppsRow = findViewById<View>(R.id.recentAppsRow)!!
+        statusArea = findViewById<LinearLayout>(R.id.statusArea)!!
+        dockContainer = findViewById<LinearLayout>(R.id.dockContainer)!!
     }
 
     // ============ ALPHABET COLUMNS ============
@@ -213,7 +274,6 @@ class MainActivity : AppCompatActivity() {
             else -> "\"$letter\""
         }
         if (apps.isEmpty()) {
-            Toast.makeText(this, getString(R.string.no_apps, letter.toString()), Toast.LENGTH_SHORT).show()
             return
         }
         leftColumn.visibility = View.GONE
@@ -241,6 +301,10 @@ class MainActivity : AppCompatActivity() {
         recentAppsGrid.layoutManager = glm
         recentAppsGrid.adapter = recentAppsAdapter
 
+        updateRecentTileHeight()
+    }
+
+    private fun updateRecentTileHeight() {
         recentAppsGrid.post {
             val gridH = recentAppsGrid.height
             val padTop = recentAppsGrid.paddingTop
@@ -291,20 +355,15 @@ class MainActivity : AppCompatActivity() {
         killAllButton.setOnClickListener {
             val tiles = (0 until recentAppsAdapter.itemCount).map { recentAppsAdapter.getTileAt(it) }
             if (tiles.isEmpty()) {
-                Toast.makeText(this, "No apps to kill", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            var killedCount = 0
             for (tile in tiles) {
-                if (recentTasksRepository.forceStopPackage(tile.packageName)) {
-                    killedCount++
-                }
+                recentTasksRepository.forceStopPackage(tile.packageName)
                 recentTasksRepository.removeTask(tile.taskId)
             }
             recentTasksRepository.removeAllVisibleRecentTasks()
             recentAppsAdapter.clearAll()
-            Toast.makeText(this, "Killed $killedCount app(s)", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -314,12 +373,97 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.settingsButton)!!.setOnClickListener { showSettingsDialog() }
     }
 
+    private fun showSettingsMorph(anchor: View) {
+        val content = createSettingsMorphContent()
+        morphingEngine.expand(
+            anchor,
+            content,
+            MorphConfig(maxWidthFraction = 0.78f, durationMs = 340L)
+        )
+    }
+
+    private fun createSettingsMorphContent(): View {
+        val scrollView = ScrollView(this)
+        scrollView.isFillViewport = false
+
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.setPadding(dp(18), dp(16), dp(18), dp(16))
+        scrollView.addView(
+            container,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        val title = TextView(this)
+        title.text = "Home Settings"
+        title.setTextColor(resources.getColor(R.color.text_primary, theme))
+        title.textSize = 18f
+        title.setTypeface(title.typeface, android.graphics.Typeface.BOLD)
+        container.addView(
+            title,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        addSettingsAction(container, "Manage Permissions") {
+            morphingEngine.collapse()
+            openAppPermissions()
+        }
+        addSettingsAction(container, "Set Wallpaper") {
+            morphingEngine.collapse()
+            showWallpaperOptions()
+        }
+        addSettingsAction(container, "Battery Settings") {
+            morphingEngine.collapse()
+            startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+        }
+        addSettingsAction(container, "Notification Access") {
+            morphingEngine.collapse()
+            openNotificationAccess()
+        }
+        addSettingsAction(container, "Dock Apps") {
+            morphingEngine.collapse()
+            showDockSettings()
+        }
+        addSettingsAction(container, "Dock Height") {
+            morphingEngine.collapse()
+            showDockHeightDialog()
+        }
+
+        return scrollView
+    }
+
+    private fun addSettingsAction(container: LinearLayout, label: String, action: () -> Unit) {
+        val row = TextView(this)
+        row.text = label
+        row.setTextColor(resources.getColor(R.color.text_primary, theme))
+        row.textSize = 14f
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(dp(12), 0, dp(12), 0)
+        row.background = resources.getDrawable(R.drawable.tile_bg, theme)
+        row.setOnClickListener { action() }
+
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(46)
+        )
+        params.topMargin = dp(10)
+        container.addView(row, params)
+    }
+
     private fun showSettingsDialog() {
         val items = arrayOf(
             "Manage Permissions",
             "Set Wallpaper",
             "Battery Settings",
-            "Notification Access"
+            "Notification Access",
+            "Dock Apps",
+            "Dock Height"
         )
 
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
@@ -330,6 +474,8 @@ class MainActivity : AppCompatActivity() {
                     1 -> showWallpaperOptions()
                     2 -> startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
                     3 -> openNotificationAccess()
+                    4 -> showDockSettings()
+                    5 -> showDockHeightDialog()
                 }
             }
             .show()
@@ -425,11 +571,216 @@ class MainActivity : AppCompatActivity() {
             contentResolver.openInputStream(imageUri)?.use { stream ->
                 WallpaperManager.getInstance(this).setStream(stream)
             } ?: throw IllegalArgumentException("Unable to open selected image")
-            Toast.makeText(this, "Wallpaper updated", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e("HomeLauncher", "Failed to set wallpaper from $imageUri", e)
             Toast.makeText(this, "Failed to set wallpaper", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // ============ DOCK ============
+
+    private fun initDock() {
+        applyDockHeight()
+        refreshDock()
+    }
+
+    private fun refreshDock() {
+        dockContainer.removeAllViews()
+        for (slot in 0 until DOCK_SLOT_COUNT) {
+            dockContainer.addView(createDockSlot(slot, getDockPackage(slot)))
+        }
+    }
+
+    private fun createDockSlot(slot: Int, packageName: String?): View {
+        val slotView = LinearLayout(this)
+        slotView.layoutParams = LinearLayout.LayoutParams(
+            0,
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            1f
+        )
+        slotView.gravity = Gravity.CENTER
+        slotView.orientation = LinearLayout.VERTICAL
+        slotView.setPadding(4, 2, 4, 2)
+
+        val icon = ImageView(this)
+        val iconSize = dp(42)
+        icon.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
+
+        val label = TextView(this)
+        label.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        label.gravity = Gravity.CENTER
+        label.maxLines = 1
+        label.setTextColor(resources.getColor(R.color.text_secondary, theme))
+        label.textSize = 9f
+
+        if (packageName == null) {
+            icon.setImageResource(android.R.drawable.ic_input_add)
+            label.text = "Set"
+            slotView.setOnClickListener { showDockAppPicker(slot) }
+            slotView.contentDescription = "Set dock app ${slot + 1}"
+        } else {
+            try {
+                icon.setImageDrawable(packageManager.getApplicationIcon(packageName))
+                label.text = packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(packageName, 0)
+                )
+                slotView.setOnClickListener { launchDockApp(packageName) }
+                slotView.setOnLongClickListener {
+                    showDockAppPicker(slot)
+                    true
+                }
+                slotView.contentDescription = "Launch ${label.text}"
+            } catch (e: PackageManager.NameNotFoundException) {
+                icon.setImageResource(android.R.drawable.sym_def_app_icon)
+                label.text = "Missing"
+                slotView.setOnClickListener { showDockAppPicker(slot) }
+                slotView.contentDescription = "Replace missing dock app ${slot + 1}"
+            }
+        }
+
+        slotView.addView(icon)
+        slotView.addView(label)
+        return slotView
+    }
+
+    private fun launchDockApp(packageName: String) {
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent == null) {
+            Toast.makeText(this, "App unavailable", Toast.LENGTH_SHORT).show()
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot launch app", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showDockSettings() {
+        if (!appIndex.isLoaded()) appIndex.load()
+        val items = Array(DOCK_SLOT_COUNT + 1) { index ->
+            if (index == DOCK_SLOT_COUNT) {
+                "Clear dock"
+            } else {
+                "Slot ${index + 1}: ${getDockLabel(getDockPackage(index)) ?: "Empty"}"
+            }
+        }
+
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setTitle("Dock Apps")
+            .setItems(items) { _, which ->
+                if (which == DOCK_SLOT_COUNT) {
+                    clearDock()
+                } else {
+                    showDockAppPicker(which)
+                }
+            }
+            .show()
+    }
+
+    private fun showDockAppPicker(slot: Int) {
+        if (!appIndex.isLoaded()) appIndex.load()
+        val apps = appIndex.getAllApps()
+        val labels = arrayOf("Empty slot") + apps.map { it.label }.toTypedArray()
+
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setTitle("Dock Slot ${slot + 1}")
+            .setItems(labels) { _, which ->
+                if (which == 0) {
+                    setDockPackage(slot, null)
+                } else {
+                    setDockPackage(slot, apps[which - 1].packageName)
+                }
+                refreshDock()
+            }
+            .show()
+    }
+
+    private fun showDockHeightDialog() {
+        val heights = intArrayOf(6, 8, 10, 12, 14, 16, 18, 20)
+        val current = getDockHeightPercent()
+        val currentIndex = heights.indexOf(current).takeIf { it >= 0 } ?: 2
+        val labels = heights.map { "$it% of center area" }.toTypedArray()
+
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setTitle("Dock Height")
+            .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
+                setDockHeightPercent(heights[which])
+                applyDockHeight()
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun applyDockHeight() {
+        val dockPercent = getDockHeightPercent().coerceIn(6, 20)
+        val recentPercent = 100 - STATUS_HEIGHT_PERCENT - dockPercent
+
+        (recentAppsRow.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
+            params.weight = recentPercent.toFloat()
+            recentAppsRow.layoutParams = params
+        }
+        (dockContainer.layoutParams as? LinearLayout.LayoutParams)?.let { params ->
+            params.weight = dockPercent.toFloat()
+            dockContainer.layoutParams = params
+        }
+        centerColumn.requestLayout()
+        updateRecentTileHeight()
+    }
+
+    private fun getDockPackage(slot: Int): String? {
+        return getSharedPreferences(PREFS_DOCK, Context.MODE_PRIVATE)
+            .getString("dock_pkg_$slot", null)
+    }
+
+    private fun setDockPackage(slot: Int, packageName: String?) {
+        val editor = getSharedPreferences(PREFS_DOCK, Context.MODE_PRIVATE).edit()
+        if (packageName == null) {
+            editor.remove("dock_pkg_$slot")
+        } else {
+            editor.putString("dock_pkg_$slot", packageName)
+        }
+        editor.apply()
+    }
+
+    private fun clearDock() {
+        val editor = getSharedPreferences(PREFS_DOCK, Context.MODE_PRIVATE).edit()
+        for (slot in 0 until DOCK_SLOT_COUNT) {
+            editor.remove("dock_pkg_$slot")
+        }
+        editor.apply()
+        refreshDock()
+    }
+
+    private fun getDockLabel(packageName: String?): String? {
+        if (packageName == null) return null
+        return try {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        } catch (e: PackageManager.NameNotFoundException) {
+            "Missing"
+        }
+    }
+
+    private fun getDockHeightPercent(): Int {
+        return getSharedPreferences(PREFS_DOCK, Context.MODE_PRIVATE)
+            .getInt(KEY_DOCK_HEIGHT_PERCENT, DEFAULT_DOCK_HEIGHT_PERCENT)
+    }
+
+    private fun setDockHeightPercent(percent: Int) {
+        getSharedPreferences(PREFS_DOCK, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_DOCK_HEIGHT_PERCENT, percent)
+            .apply()
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).roundToInt()
     }
 
     // ============ TASK LISTENER ============
@@ -651,6 +1002,12 @@ class MainActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
         todayDate.text = sdf.format(Date())
 
+        if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            todayEvent.text = "Calendar permission needed"
+            todayTasks.text = ""
+            return
+        }
+
         try {
             val resolver = contentResolver
             val cal = Calendar.getInstance()
@@ -663,28 +1020,33 @@ class MainActivity : AppCompatActivity() {
             cal.set(Calendar.SECOND, 59)
             val dayEnd = cal.timeInMillis
 
+            val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon().also { builder ->
+                ContentUris.appendId(builder, dayStart)
+                ContentUris.appendId(builder, dayEnd)
+            }.build()
+
             val cursor = resolver.query(
-                CalendarContract.Events.CONTENT_URI,
-                arrayOf(CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART),
-                "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ?",
-                arrayOf(dayStart.toString(), dayEnd.toString()),
-                "${CalendarContract.Events.DTSTART} ASC LIMIT 3"
+                instancesUri,
+                arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN),
+                null,
+                null,
+                "${CalendarContract.Instances.BEGIN} ASC"
             )
 
-            if (cursor != null && cursor.moveToFirst()) {
+            if (cursor == null) {
+                todayEvent.text = "No events today"
+            } else cursor.use {
                 val events = mutableListOf<String>()
-                do {
-                    val title = cursor.getString(0)
-                    val start = cursor.getLong(1)
+                while (it.moveToNext() && events.size < 3) {
+                    val title = it.getString(0) ?: "Event"
+                    val start = it.getLong(1)
                     val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(start))
                     events.add("$time $title")
-                } while (cursor.moveToNext())
-                todayEvent.text = events.joinToString("\n")
-                cursor.close()
-            } else {
-                todayEvent.text = "No events today"
+                }
+                todayEvent.text = if (events.isEmpty()) "No events today" else events.joinToString("\n")
             }
         } catch (e: Exception) {
+            Log.e("HomeLauncher", "Calendar event query failed", e)
             todayEvent.text = "Calendar access needed"
         }
 
@@ -692,26 +1054,41 @@ class MainActivity : AppCompatActivity() {
             val resolver = contentResolver
             val cursor = resolver.query(
                 CalendarContract.Reminders.CONTENT_URI,
-                arrayOf(CalendarContract.Reminders.TITLE, CalendarContract.Reminders.MINUTES),
+                arrayOf(CalendarContract.Reminders.EVENT_ID, CalendarContract.Reminders.MINUTES),
                 "${CalendarContract.Reminders.MINUTES} >= 0",
                 null,
-                "${CalendarContract.Reminders.MINUTES} ASC LIMIT 3"
+                "${CalendarContract.Reminders.MINUTES} ASC"
             )
 
-            if (cursor != null && cursor.moveToFirst()) {
-                val tasks = mutableListOf<String>()
-                do {
-                    val title = cursor.getString(0) ?: "Task"
-                    tasks.add("☐ $title")
-                } while (cursor.moveToNext())
-                todayTasks.text = tasks.joinToString("\n")
-                cursor.close()
-            } else {
+            if (cursor == null) {
                 todayTasks.text = ""
+            } else cursor.use {
+                val tasks = mutableListOf<String>()
+                while (it.moveToNext() && tasks.size < 3) {
+                    val eventId = it.getLong(0)
+                    val title = getCalendarEventTitle(eventId) ?: "Reminder"
+                    tasks.add("☐ $title")
+                }
+                todayTasks.text = tasks.joinToString("\n")
             }
         } catch (e: Exception) {
+            Log.e("HomeLauncher", "Calendar reminder query failed", e)
             todayTasks.text = ""
         }
+    }
+
+    private fun getCalendarEventTitle(eventId: Long): String? {
+        return runCatching {
+            contentResolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                arrayOf(CalendarContract.Events.TITLE),
+                "${CalendarContract.Events._ID} = ?",
+                arrayOf(eventId.toString()),
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull()
     }
 
     // ============ SYSTEM STATS ============

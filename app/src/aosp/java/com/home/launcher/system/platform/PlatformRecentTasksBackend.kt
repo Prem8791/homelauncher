@@ -3,6 +3,7 @@ package com.home.launcher.system.platform
 import android.app.ActivityManager
 import android.app.ActivityTaskManager
 import android.app.TaskStackListener
+import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
@@ -25,15 +26,41 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
                 UserHandle.USER_CURRENT
             )
             tasks.mapNotNull { task: ActivityManager.RecentTaskInfo ->
-                val baseIntent = task.baseIntent
-                val packageName = baseIntent?.component?.packageName ?: return@mapNotNull null
-                val label = task.taskDescription?.label?.toString()
-                    ?: baseIntent.component?.shortClassName
+                val component = resolveTaskComponent(task)
+                val packageName = component?.packageName
+                    ?: task.baseIntent?.`package`
+                    ?: return@mapNotNull null
+                if (packageName == context.packageName) return@mapNotNull null
+                val label = resolveTaskLabel(task, component, packageName)
                 RecentTask(task.taskId, packageName, label, task.userId)
             }
         }.onFailure {
             Log.e(TAG, "getRecentTasks failed", it)
         }.getOrDefault(emptyList())
+    }
+
+    private fun resolveTaskComponent(task: ActivityManager.RecentTaskInfo): ComponentName? {
+        return task.realActivity
+            ?: task.baseIntent?.component
+            ?: task.origActivity
+            ?: task.topActivity
+            ?: task.baseActivity
+    }
+
+    private fun resolveTaskLabel(
+        task: ActivityManager.RecentTaskInfo,
+        component: ComponentName?,
+        packageName: String
+    ): String {
+        val taskLabel = task.taskDescription?.label?.toString()
+        if (!taskLabel.isNullOrBlank()) return taskLabel
+
+        return runCatching {
+            val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
+            context.packageManager.getApplicationLabel(appInfo).toString()
+        }.getOrElse {
+            component?.shortClassName ?: packageName
+        }
     }
 
     override fun removeTask(taskId: Int): Boolean {
