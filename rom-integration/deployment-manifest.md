@@ -117,4 +117,29 @@ rom-integration/aosp/overlays/HomeLauncherConfigOverlay/
 rom-integration/patches/0005-optional-recents-component-overlay.patch
 ```
 
-Status: optional future work. Do not add to `PRODUCT_PACKAGES` until `com.home.launcher` implements the QuickStep/Overview service contract.
+Status: deferred. The QuickStep service contract (`app/src/main/aidl/.../IOverviewProxy.aidl`,
+`ISystemUiProxy.aidl` + `QuickStepService.kt`) is now implemented. The overlay can be
+re-enabled in `home_launcher_product.mk` once the service binding is verified on-device.
+
+## TaskOrganizer Migration
+
+Files:
+
+```text
+app/src/main/java/com/home/launcher/task/TaskOrganizerRecentTasksBackend.kt
+```
+
+Status: implemented. Default backend in `RecentTasksRepository` switched to
+`TaskOrganizerRecentTasksBackend`. `getTaskSnapshot()` and `forceStopPackage()`
+still use reflection via `HiddenApiBridge` / `ReflectionSnapshotCapture`.
+
+## SELinux Policy
+
+Files:
+
+```text
+rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch
+rom-integration/sepolicy/private/platform_app_home_launcher.te
+```
+
+Status: ready to apply. Add to `system/sepolicy/private/` in AOSP tree before rebuild.

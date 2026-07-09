@@ -6,11 +6,17 @@ new file mode 100644
 +android_app {
 +    name: "HomeLauncher",
 +    manifest: "app/src/main/AndroidManifest.xml",
-+    srcs: ["app/src/main/java/**/*.kt"],
++    srcs: [
++        "app/src/main/java/**/*.kt",
++        "app/src/aosp/java/**/*.kt",
++    ],
 +    resource_dirs: ["app/src/main/res"],
 +    platform_apis: true,
 +    certificate: "platform",
 +    privileged: true,
++    aidl: {
++        local_include_dirs: ["app/src/aosp/aidl"],
++    },
 +    static_libs: [
 +        "androidx.appcompat_appcompat",
 +        "androidx.localbroadcastmanager_localbroadcastmanager",

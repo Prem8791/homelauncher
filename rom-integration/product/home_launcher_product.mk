@@ -4,7 +4,6 @@
 
 PRODUCT_PACKAGES += \
     HomeLauncher \
-    HomeLauncherConfigOverlay \
     privapp-permissions-com.home.launcher
 
 # Optional final-ROM cleanup after HomeLauncher replaces Launcher3/QuickStep:

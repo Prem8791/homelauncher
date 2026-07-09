@@ -152,7 +152,7 @@ Command:
 
 ```sh
 source build/envsetup.sh
-lunch bliss_I001D-user
+lunch bliss_I001D-userdebug
 m HomeLauncher privapp-permissions-com.home.launcher
 ```
 
