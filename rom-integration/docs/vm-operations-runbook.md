@@ -44,6 +44,7 @@ Preferred, once patch files are fixed:
 ```bash
 git apply packages/apps/HomeLauncher/rom-integration/patches/0007-integrate-home-launcher-product-mk.patch
 git apply packages/apps/HomeLauncher/rom-integration/patches/0008-add-active-home-launcher-proc-stat-sepolicy.patch
+git apply packages/apps/HomeLauncher/rom-integration/patches/0009-keep-userdebug-build-identity.patch
 ```
 
 Manual fallback:
@@ -62,6 +63,7 @@ Verify:
 ```bash
 grep -RIn "home_launcher_product.mk" device/asus/I001D/bliss_I001D.mk
 grep -RIn "allow platform_app proc_stat:file" system/sepolicy/private/platform_app_home_launcher.te
+grep -n "TARGET_BUILD_VARIANT" device/asus/I001D/bliss_I001D.mk
 ```
 
 ## Lunch Correct Target
@@ -141,6 +143,9 @@ Also inspect OTA metadata:
 ```bash
 unzip -p out/target/product/I001D/bliss_I001D-ota.zip META-INF/com/android/metadata | grep -E 'post-build|post-build-incremental'
 ```
+
+For a true userdebug build, `post-build` must contain `:userdebug/` and should
+not contain `:user/release-keys`.
 
 ## Download OTA To Windows
 

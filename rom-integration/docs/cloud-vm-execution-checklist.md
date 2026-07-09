@@ -145,6 +145,26 @@ adb shell sesearch --allow -s platform_app -t proc_stat -c file -p read
 # Expect: allow platform_app proc_stat:file { read }
 ```
 
+## 3.6. Preserve Userdebug Build Identity
+
+Apply the patch that prevents the stock ASUS `user/release-keys` fingerprint
+from overriding userdebug runtime identity:
+
+```sh
+git apply < packages/apps/HomeLauncher/rom-integration/patches/0009-keep-userdebug-build-identity.patch
+```
+
+This keeps the stock fingerprint override only for actual `user` builds. Without
+this, the image files can contain `ro.build.type=userdebug` while runtime
+`getprop ro.build.type` still reports `user`.
+
+Validate:
+
+```sh
+grep -n "TARGET_BUILD_VARIANT" device/asus/I001D/bliss_I001D.mk
+grep -n "BUILD_FINGERPRINT" device/asus/I001D/bliss_I001D.mk
+```
+
 ## 4. Build Only The Launcher
 
 Command:
