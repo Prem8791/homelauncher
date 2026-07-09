@@ -43,6 +43,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+    private companion object {
+        const val REQUEST_PICK_WALLPAPER_IMAGE = 1001
+    }
 
     // Layout references
     private lateinit var leftColumn: LinearLayout
@@ -122,8 +125,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun logPrivilegedPermission(name: String) {
-        val result = checkSelfPermission(name)
-        Log.i("PermCheck", "android.permission.$name -> ${
+        val permission = "android.permission.$name"
+        val result = checkSelfPermission(permission)
+        Log.i("PermCheck", "$permission -> ${
             when (result) {
                 PackageManager.PERMISSION_GRANTED -> "GRANTED"
                 PackageManager.PERMISSION_DENIED -> "DENIED"
@@ -291,23 +295,16 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            AlertDialog.Builder(this)
-                .setTitle("Kill All Apps")
-                .setMessage("This will force-stop ${tiles.size} app(s). Continue?")
-                .setPositiveButton("Kill All") { _, _ ->
-                    var killedCount = 0
-                    for (tile in tiles) {
-                        if (recentTasksRepository.forceStopPackage(tile.packageName)) {
-                            killedCount++
-                        }
-                        recentTasksRepository.removeTask(tile.taskId)
-                    }
-                    recentTasksRepository.removeAllVisibleRecentTasks()
-                    recentAppsAdapter.clearAll()
-                    Toast.makeText(this, "Killed $killedCount app(s)", Toast.LENGTH_SHORT).show()
+            var killedCount = 0
+            for (tile in tiles) {
+                if (recentTasksRepository.forceStopPackage(tile.packageName)) {
+                    killedCount++
                 }
-                .setNegativeButton("Cancel", null)
-                .show()
+                recentTasksRepository.removeTask(tile.taskId)
+            }
+            recentTasksRepository.removeAllVisibleRecentTasks()
+            recentAppsAdapter.clearAll()
+            Toast.makeText(this, "Killed $killedCount app(s)", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -330,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> openAppPermissions()
-                    1 -> openWallpaperPicker()
+                    1 -> showWallpaperOptions()
                     2 -> startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
                     3 -> openNotificationAccess()
                 }
@@ -356,17 +353,82 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openWallpaperPicker() {
+    private fun showWallpaperOptions() {
+        val items = arrayOf(
+            "System wallpapers",
+            "Choose from gallery",
+            "Choose image file"
+        )
+
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
+            .setTitle("Set Wallpaper")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> openSystemWallpaperPicker()
+                    1 -> openImagePicker(Intent.ACTION_GET_CONTENT)
+                    2 -> openImagePicker(Intent.ACTION_OPEN_DOCUMENT)
+                }
+            }
+            .show()
+    }
+
+    private fun openSystemWallpaperPicker() {
         try {
-            val intent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+            val intent = Intent(Intent.ACTION_SET_WALLPAPER)
             startActivity(intent)
         } catch (e: Exception) {
             try {
-                val intent = Intent(Intent.ACTION_SET_WALLPAPER)
-                startActivity(Intent.createChooser(intent, "Select wallpaper"))
+                startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
             } catch (e2: Exception) {
                 Toast.makeText(this, "Wallpaper picker not available", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun openImagePicker(action: String) {
+        try {
+            val intent = Intent(action).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (action == Intent.ACTION_OPEN_DOCUMENT) {
+                    addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                }
+            }
+            startActivityForResult(Intent.createChooser(intent, "Choose wallpaper image"), REQUEST_PICK_WALLPAPER_IMAGE)
+        } catch (e: Exception) {
+            Toast.makeText(this, "No image picker available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @Deprecated("Uses legacy callback for platform compatibility with the AOSP build target.")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQUEST_PICK_WALLPAPER_IMAGE || resultCode != RESULT_OK) return
+
+        val imageUri = data?.data
+        if (imageUri == null) {
+            Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val flags = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+        if (flags != 0) {
+            try {
+                contentResolver.takePersistableUriPermission(imageUri, flags)
+            } catch (_: SecurityException) {
+                // ACTION_PICK providers often grant transient access only.
+            }
+        }
+
+        try {
+            contentResolver.openInputStream(imageUri)?.use { stream ->
+                WallpaperManager.getInstance(this).setStream(stream)
+            } ?: throw IllegalArgumentException("Unable to open selected image")
+            Toast.makeText(this, "Wallpaper updated", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("HomeLauncher", "Failed to set wallpaper from $imageUri", e)
+            Toast.makeText(this, "Failed to set wallpaper", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -664,8 +726,6 @@ class MainActivity : AppCompatActivity() {
             storageView = findViewById<TextView>(R.id.statStorage)!!
         )
 
-        findViewById<LinearLayout>(R.id.statusStatsCenter)!!.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-        }
+        findViewById<LinearLayout>(R.id.statusStatsCenter)!!.isClickable = false
     }
 }

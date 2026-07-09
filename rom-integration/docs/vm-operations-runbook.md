@@ -82,6 +82,18 @@ TARGET_ARCH=arm64
 TARGET_BUILD_VARIANT=userdebug
 ```
 
+Guard against stale build environment:
+
+```bash
+echo "$TARGET_PRODUCT $TARGET_BUILD_VARIANT $TARGET_RELEASE"
+```
+
+Expected:
+
+```text
+bliss_I001D userdebug ap2a
+```
+
 ## Build OTA
 
 ```bash
@@ -105,6 +117,29 @@ Check ZIP on VM:
 ```bash
 unzip -t out/target/product/I001D/bliss_I001D-ota.zip | tail -5
 sha256sum out/target/product/I001D/bliss_I001D-ota.zip
+```
+
+Before downloading or flashing, verify the generated build properties are still
+`userdebug`. Do not flash if these report `user`:
+
+```bash
+grep -RhsE '^(ro\.build\.type|ro\.system\.build\.type|ro\.debuggable|ro\.build\.flavor)=' \
+  out/target/product/I001D/{system,system_ext,product,vendor}/build.prop
+```
+
+Expected userdebug indicators include:
+
+```text
+ro.build.type=userdebug
+ro.system.build.type=userdebug
+ro.debuggable=1
+ro.build.flavor=bliss_I001D-userdebug
+```
+
+Also inspect OTA metadata:
+
+```bash
+unzip -p out/target/product/I001D/bliss_I001D-ota.zip META-INF/com/android/metadata | grep -E 'post-build|post-build-incremental'
 ```
 
 ## Download OTA To Windows

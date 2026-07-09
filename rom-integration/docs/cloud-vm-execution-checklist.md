@@ -197,6 +197,23 @@ Expected outcome:
 out/target/product/I001D/system.img updated
 ```
 
+Validate build variant before flashing. Stop here if any active image property
+reports `user`:
+
+```sh
+grep -RhsE '^(ro\.build\.type|ro\.system\.build\.type|ro\.debuggable|ro\.build\.flavor)=' \
+  out/target/product/I001D/{system,system_ext,product,vendor}/build.prop
+```
+
+Expected userdebug indicators:
+
+```text
+ro.build.type=userdebug
+ro.system.build.type=userdebug
+ro.debuggable=1
+ro.build.flavor=bliss_I001D-userdebug
+```
+
 Rollback:
 
 ```text

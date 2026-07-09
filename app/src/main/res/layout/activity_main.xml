@@ -248,6 +248,9 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="70"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:importantForAccessibility="no"
                     android:orientation="vertical"
                     android:weightSum="10">
 
