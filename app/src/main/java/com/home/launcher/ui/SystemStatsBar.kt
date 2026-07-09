@@ -29,7 +29,7 @@ class SystemStatsBar(
         if (running) return
         running = true
         refresh()
-        handler.postDelayed(refreshRunnable, 2000)
+        handler.postDelayed(refreshRunnable, if (shouldThrottle()) 10000 else 2000)
     }
 
     fun stop() {
@@ -45,8 +45,11 @@ class SystemStatsBar(
             append("%")
         }
         ramView.text = "🧠 ${stats.ramUsedMb}/${stats.ramTotalMb}GB"
-        cpuView.text = "⚙️ ${stats.cpuPercent}%"
+        val cpuText = if (stats.cpuPercent < 0) "⏸" else "⚙️ ${stats.cpuPercent}%"
+        cpuView.text = cpuText
         tempView.text = "🌡 ${"%.1f".format(stats.temperatureCelsius)}°C"
         storageView.text = "💾 ${stats.storagePercent}%"
     }
+
+    fun shouldThrottle(): Boolean = provider.shouldThrottleCpuPoll()
 }

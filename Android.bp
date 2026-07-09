@@ -4,6 +4,8 @@ android_app {
     name: "HomeLauncher",
 
     manifest: "app/src/main/AndroidManifest.xml",
+    version_code: 1,
+    version_name: "1.0.0",
     srcs: ["app/src/main/java/**/*.kt"],
     resource_dirs: ["app/src/main/res"],
 

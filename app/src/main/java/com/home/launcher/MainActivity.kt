@@ -66,11 +66,12 @@ class MainActivity : AppCompatActivity() {
     private val recentTasksRepository by lazy { RecentTasksRepository(this) }
     private lateinit var statsBar: SystemStatsBar
     private var taskListenerRegistration: TaskListenerRegistration? = null
+    private var pollingActive = false
     private val handler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
             refreshRecentTasks()
-            handler.postDelayed(this, 3000)
+            if (pollingActive) handler.postDelayed(this, 3000)
         }
     }
 
@@ -80,7 +81,7 @@ class MainActivity : AppCompatActivity() {
     private val notificationRefreshRunnable = object : Runnable {
         override fun run() {
             updateNotificationIcons()
-            handler.postDelayed(this, 2000)
+            if (pollingActive) handler.postDelayed(this, 2000)
         }
     }
 
@@ -92,6 +93,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // === Startup diagnostics ===
+        Log.i("HomeLauncher", "versionCode=${BuildConfig.VERSION_CODE} versionName=${BuildConfig.VERSION_NAME}")
+        Log.i("HomeLauncher", "package=$packageName uid=${android.os.Process.myUid()}")
+        Log.i("HomeLauncher", "sdk=${Build.VERSION.SDK_INT} release=${Build.VERSION.RELEASE}")
+        logPrivilegedPermission("REAL_GET_TASKS")
+        logPrivilegedPermission("MANAGE_ACTIVITY_TASKS")
+        logPrivilegedPermission("START_TASKS_FROM_RECENTS")
+        logPrivilegedPermission("REMOVE_TASKS")
+        logPrivilegedPermission("READ_FRAME_BUFFER")
+        logPrivilegedPermission("FORCE_STOP_PACKAGES")
+        logPrivilegedPermission("BATTERY_STATS")
+        logPrivilegedPermission("DEVICE_POWER")
+        logPrivilegedPermission("STATUS_BAR")
+        logPrivilegedPermission("INTERACT_ACROSS_USERS")
+
         window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
         setContentView(R.layout.activity_main)
 
@@ -108,14 +125,28 @@ class MainActivity : AppCompatActivity() {
         updateAlphabetAvailability()
     }
 
+    private fun logPrivilegedPermission(name: String) {
+        val result = checkSelfPermission(name)
+        Log.i("PermCheck", "android.permission.$name -> ${
+            when (result) {
+                PackageManager.PERMISSION_GRANTED -> "GRANTED"
+                PackageManager.PERMISSION_DENIED -> "DENIED"
+                else -> "UNKNOWN($result)"
+            }
+        }")
+    }
+
     override fun onResume() {
         super.onResume()
         leftColumn.visibility = View.VISIBLE
         rightColumn.visibility = View.VISIBLE
+        pollingActive = true
         refreshRecentTasks()
         registerTaskListener()
+        handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 3000)
         statsBar.start()
+        handler.removeCallbacks(notificationRefreshRunnable)
         handler.postDelayed(notificationRefreshRunnable, 2000)
 
         LocalBroadcastManager.getInstance(this)
@@ -126,6 +157,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
+        pollingActive = false
         unregisterTaskListener()
         handler.removeCallbacks(refreshRunnable)
         statsBar.stop()
@@ -227,7 +259,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshRecentTasks() {
-        val tasks = recentTasksRepository.getRecentTasks(30).filter { it.packageName != packageName }
+        val tasks = recentTasksRepository.getRecentTasks(30)
         val tiles = tasks.map { task ->
             RecentTaskTile(
                 taskId = task.taskId,

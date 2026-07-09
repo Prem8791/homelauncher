@@ -17,9 +17,24 @@ class ReflectionRecentTasksBackend(private val context: Context) : RecentTasksBa
         get() = HiddenApiBridge.activityTaskManager
 
     override fun getRecentTasks(maxNum: Int): List<RecentTask> {
-        val service = iAtm ?: return emptyList<RecentTask>()
-        val raw = HiddenApiBridge.invoke(service, "getRecentTasks", maxNum, RECENT_WITH_EXCLUDED, USER_CURRENT)
-        val taskList = unwrapParceledList(raw) ?: return emptyList<RecentTask>()
+        val service = iAtm
+        if (service == null) {
+            Log.w(TAG, "getRecentTasks: iAtm not resolved, returning empty")
+            return emptyList<RecentTask>()
+        }
+        val result = HiddenApiBridge.call(service, "getRecentTasks", maxNum, RECENT_WITH_EXCLUDED, USER_CURRENT)
+        if (!result.invoked) {
+            Log.w(TAG, "getRecentTasks: reflection call failed to invoke (hidden API blocked / method not found)")
+            return emptyList<RecentTask>()
+        }
+        Log.d(TAG, "getRecentTasks: invoked ok, raw value type=${result.value?.javaClass?.name}")
+        val raw = result.value
+        val taskList = unwrapParceledList(raw)
+        if (taskList == null) {
+            Log.w(TAG, "getRecentTasks: unwrapParceledList returned null for raw=$raw")
+            return emptyList<RecentTask>()
+        }
+        Log.d(TAG, "getRecentTasks: unwrapped list size=${taskList.size}")
         return parseRecentTasks(taskList)
     }
 

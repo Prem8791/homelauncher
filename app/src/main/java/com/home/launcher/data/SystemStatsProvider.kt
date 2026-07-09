@@ -1,7 +1,6 @@
 package com.home.launcher.data
 
 import android.app.ActivityManager
-import android.app.usage.StorageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -9,6 +8,7 @@ import android.os.BatteryManager
 import android.os.Environment
 import android.os.StatFs
 import android.os.SystemClock
+import android.util.Log
 import java.io.BufferedReader
 import java.io.FileReader
 
@@ -26,6 +26,14 @@ class SystemStatsProvider(private val context: Context) {
 
     private var lastCpuTicks: LongArray? = null
     private var lastCpuTime: Long = 0
+    private var consecutiveCpuDenials: Int = 0
+
+    companion object {
+        private const val TAG = "SystemStats"
+        private const val CPU_FAILURE_BACKOFF = 10
+    }
+
+    fun shouldThrottleCpuPoll(): Boolean = consecutiveCpuDenials >= CPU_FAILURE_BACKOFF
 
     fun getStats(): SystemStats {
         val batteryPercent = getBatteryPercent()
@@ -69,6 +77,9 @@ class SystemStatsProvider(private val context: Context) {
     }
 
     private fun getCpuUsage(): Int {
+        if (consecutiveCpuDenials >= CPU_FAILURE_BACKOFF) {
+            return -1
+        }
         return try {
             val reader = BufferedReader(FileReader("/proc/stat"))
             val line = reader.readLine() ?: return 0
@@ -97,32 +108,27 @@ class SystemStatsProvider(private val context: Context) {
 
                 lastCpuTicks = currentTicks
                 lastCpuTime = currentTime
+                consecutiveCpuDenials = 0
                 return percent.toInt().coerceIn(0, 100)
             }
 
             lastCpuTicks = currentTicks
             lastCpuTime = currentTime
+            consecutiveCpuDenials = 0
             0
         } catch (e: Exception) {
+            consecutiveCpuDenials++
+            if (consecutiveCpuDenials >= CPU_FAILURE_BACKOFF) {
+                Log.w(TAG, "CPU read failed $consecutiveCpuDenials times; throttling")
+            }
             0
         }
     }
 
     private fun getTemperature(): Float {
-        try {
-            val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 0f
-            val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
-            return temp / 10.0f
-        } catch (e: Exception) {
-            try {
-                val reader = BufferedReader(FileReader("/sys/class/thermal/thermal_zone0/temp"))
-                val line = reader.readLine()?.trim() ?: return 0f
-                reader.close()
-                return line.toFloat() / 1000.0f
-            } catch (e2: Exception) {
-                return 0f
-            }
-        }
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 0f
+        val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
+        return temp / 10.0f
     }
 
     private fun getStoragePercent(): Int {
