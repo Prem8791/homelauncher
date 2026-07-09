@@ -9,6 +9,7 @@ new file mode 100644
 +    srcs: [
 +        "app/src/main/java/**/*.kt",
 +        "app/src/aosp/java/**/*.kt",
++        "app/src/aosp/aidl/**/*.aidl",
 +    ],
 +    resource_dirs: ["app/src/main/res"],
 +    platform_apis: true,
@@ -19,6 +20,9 @@ new file mode 100644
 +    },
 +    static_libs: [
 +        "androidx.appcompat_appcompat",
++        "androidx-constraintlayout_constraintlayout",
++        "androidx.core_core-ktx",
++        "androidx.lifecycle_lifecycle-runtime-ktx",
 +        "androidx.localbroadcastmanager_localbroadcastmanager",
 +        "androidx.recyclerview_recyclerview",
 +    ],

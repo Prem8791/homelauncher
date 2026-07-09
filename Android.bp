@@ -4,12 +4,20 @@ android_app {
     name: "HomeLauncher",
 
     manifest: "app/src/main/AndroidManifest.xml",
-    srcs: ["app/src/main/java/**/*.kt"],
+    srcs: [
+        "app/src/main/java/**/*.kt",
+        "app/src/aosp/java/**/*.kt",
+        "app/src/aosp/aidl/**/*.aidl",
+    ],
     resource_dirs: ["app/src/main/res"],
 
     platform_apis: true,
     certificate: "platform",
     privileged: true,
+
+    aidl: {
+        local_include_dirs: ["app/src/aosp/aidl"],
+    },
 
     // Keep this on /system/priv-app for the first integration pass.
     // Do not set system_ext_specific/product_specific/vendor: true unless the product

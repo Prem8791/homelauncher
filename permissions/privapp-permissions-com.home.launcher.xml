@@ -12,6 +12,7 @@
         <permission name="android.permission.BATTERY_STATS" />
         <permission name="android.permission.DEVICE_POWER" />
         <permission name="android.permission.STATUS_BAR" />
+        <permission name="android.permission.STATUS_BAR_SERVICE" />
         <permission name="android.permission.INTERACT_ACROSS_USERS" />
     </privapp-permissions>
 </permissions>

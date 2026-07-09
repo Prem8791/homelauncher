@@ -5,5 +5,4 @@ diff --git a/device/<vendor>/<product>/<product>.mk b/device/<vendor>/<product>/
 +# HomeLauncher privileged platform app.
 +PRODUCT_PACKAGES += \
 +    HomeLauncher \
-+    HomeLauncherConfigOverlay \
 +    privapp-permissions-com.home.launcher
