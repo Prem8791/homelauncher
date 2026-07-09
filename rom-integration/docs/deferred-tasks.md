@@ -2,7 +2,7 @@
 
 Strikethrough items are now implemented. Remaining tasks:
 
-<s>1. Implement TaskOrganizer backend.</s>
+1. Implement a non-reflection recents backend after identifying the supported platform API.
 <s>2. Implement `android.intent.action.QUICKSTEP_SERVICE`.</s>
 3. Enable `HomeLauncherConfigOverlay` (needs on-device QuickStep binding verification).
 4. Replace Launcher3/QuickStep as official Overview provider.

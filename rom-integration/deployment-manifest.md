@@ -126,12 +126,14 @@ re-enabled in `home_launcher_product.mk` once the service binding is verified on
 Files:
 
 ```text
-app/src/main/java/com/home/launcher/task/TaskOrganizerRecentTasksBackend.kt
+frameworks/base/core/java/android/window/TaskOrganizer.java
 ```
 
-Status: implemented. Default backend in `RecentTasksRepository` switched to
-`TaskOrganizerRecentTasksBackend`. `getTaskSnapshot()` and `forceStopPackage()`
-still use reflection via `HiddenApiBridge` / `ReflectionSnapshotCapture`.
+Status: deferred. Android 14 `TaskOrganizer` exposes organizer registration,
+root/child task control, and `ActivityManager.RunningTaskInfo` callbacks. It does
+not expose recents operations such as `getRecentTasks`, `removeTask`, or
+`startActivityFromRecents`; those remain on `ActivityTaskManager` /
+`IActivityTaskManager`. The active backend remains `ReflectionRecentTasksBackend`.
 
 ## SELinux Policy
 
