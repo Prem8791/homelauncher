@@ -4,7 +4,8 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 
 data class NotificationEntry(
     val key: String,
@@ -21,13 +22,9 @@ class NotificationListener : NotificationListenerService() {
 
     companion object {
         const val TAG = "NotifListener"
-        const val ACTION_NOTIF_POSTED = "com.home.launcher.NOTIF_POSTED"
-        const val ACTION_NOTIF_REMOVED = "com.home.launcher.NOTIF_REMOVED"
-        const val EXTRA_NOTIFICATION = "notification"
-        const val EXTRA_PACKAGE = "package"
-        const val EXTRA_KEY = "key"
 
-        private val notifications = mutableMapOf<String, NotificationEntry>()
+        private val notifications = ConcurrentHashMap<String, NotificationEntry>()
+        private val changeListeners = CopyOnWriteArraySet<() -> Unit>()
         private var connected = false
 
         fun isConnected(): Boolean = connected
@@ -47,6 +44,21 @@ class NotificationListener : NotificationListenerService() {
             val entry = notifications[key] ?: return
             nm?.cancel(entry.packageName, key.hashCode())
             notifications.remove(key)
+            notifyChanged()
+        }
+
+        fun addChangeListener(listener: () -> Unit) {
+            changeListeners.add(listener)
+        }
+
+        fun removeChangeListener(listener: () -> Unit) {
+            changeListeners.remove(listener)
+        }
+
+        private fun notifyChanged() {
+            for (listener in changeListeners) {
+                listener()
+            }
         }
     }
 
@@ -56,7 +68,7 @@ class NotificationListener : NotificationListenerService() {
         for (sbn in activeNotifications) {
             addNotification(sbn)
         }
-        broadcastRefresh()
+        notifyChanged()
     }
 
     override fun onListenerDisconnected() {
@@ -66,15 +78,12 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         addNotification(sbn)
-        broadcastRefresh()
+        notifyChanged()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         notifications.remove(sbn.key)
-        val intent = android.content.Intent(ACTION_NOTIF_REMOVED)
-            .putExtra(EXTRA_KEY, sbn.key)
-            .putExtra(EXTRA_PACKAGE, sbn.packageName)
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
+        notifyChanged()
     }
 
     fun removeNotification(key: String) {
@@ -82,7 +91,7 @@ class NotificationListener : NotificationListenerService() {
             cancelNotification(key)
         } catch (e: Exception) {}
         notifications.remove(key)
-        broadcastRefresh()
+        notifyChanged()
     }
 
     private fun addNotification(sbn: StatusBarNotification) {
@@ -111,8 +120,4 @@ class NotificationListener : NotificationListenerService() {
         notifications[sbn.key] = entry
     }
 
-    private fun broadcastRefresh() {
-        LocalBroadcastManager.getInstance(this)
-            .sendBroadcast(android.content.Intent(ACTION_NOTIF_POSTED))
-    }
 }

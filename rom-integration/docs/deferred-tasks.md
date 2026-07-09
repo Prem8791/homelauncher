@@ -11,6 +11,6 @@ Strikethrough items are now implemented. Remaining tasks:
 7. Add/default-grant calendar permission.
 <s>8. Apply SELinux policy for `/proc/stat` and thermal sysfs.</s>
 9. Replace deprecated `LocalBroadcastManager`.
-10. Remove legacy reflection backend from ROM builds after platform backend validation.
+<s>10. Remove legacy reflection backend from ROM builds after platform backend validation.</s>
 11. Validate Android 15/16 API compatibility.
 12. Add automated instrumentation tests for task lifecycle behavior.

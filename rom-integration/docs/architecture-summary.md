@@ -2,22 +2,21 @@
 
 ## Current State
 
-`com.home.launcher` is a Gradle-built Android application using AndroidX UI libraries. It currently works as a standalone platform-signed APK installed under `/data/app`. The app declares HOME intent filters and privileged task-management permissions. Recent-task behavior is currently implemented through hidden API reflection.
+`com.home.launcher` is a ROM-bundled privileged platform app using AndroidX UI libraries. The app declares HOME intent filters and privileged task-management permissions. Recent-task behavior is implemented through the AOSP-only platform backend.
 
 The source-level refactor in this preparation pass changes the architecture from direct `HiddenApi` calls to this boundary:
 
 ```text
 MainActivity / RecentAppsAdapter
-  -> RecentTasksRepository
+      -> RecentTasksRepository
       -> RecentTasksBackend
-          -> ReflectionRecentTasksBackend      temporary Android 14 backend
-          -> TaskOrganizerRecentTasksBackend   future backend placeholder
+          -> PlatformRecentTasksBackend        Android 14 platform backend
 ```
 
-All remaining reflection is isolated under:
+The platform backend is isolated under:
 
 ```text
-app/src/main/java/com/home/launcher/system/hiddenapi/
+app/src/aosp/java/com/home/launcher/system/platform/
 ```
 
 Task-facing interfaces are under:
@@ -40,11 +39,11 @@ SELinux domain=platform_app
 HOME activity=com.home.launcher/.MainActivity
 ```
 
-The first ROM integration is not a full Overview/QuickStep replacement. It makes the launcher a privileged platform app and keeps the temporary reflection backend.
+The first ROM integration is not a full Overview/QuickStep replacement. It makes the launcher a privileged platform app and uses formal ActivityTaskManager platform APIs for recents.
 
 ## Target Final Architecture
 
-Final architecture should replace reflection with:
+Final architecture should add Overview/QuickStep integration through:
 
 ```text
 TaskOrganizer / WM Shell callbacks
@@ -74,6 +73,5 @@ IOverviewProxy / ISystemUiProxy
 - Remove or replace Launcher3QuickStep.
 - Enable `HomeLauncherConfigOverlay`.
 - Implement QuickStep service compatibility.
-- Implement TaskOrganizer backend.
-- Remove reflection backend.
+- Validate `PlatformRecentTasksBackend` on-device.
 - Replace deprecated `LocalBroadcastManager`.

@@ -18,7 +18,7 @@ Preparation refactor adds:
 
 ```text
 app/src/main/java/com/home/launcher/task/
-app/src/main/java/com/home/launcher/system/hiddenapi/
+app/src/aosp/java/com/home/launcher/system/platform/
 ```
 
 Probe module retained for diagnostics:
@@ -43,7 +43,6 @@ Current Gradle app:
   - `androidx.recyclerview:recyclerview`
   - `androidx.constraintlayout:constraintlayout`
   - `androidx.lifecycle:lifecycle-runtime-ktx`
-  - `androidx.localbroadcastmanager:localbroadcastmanager`
 
 Standalone Gradle signing remains debug-signing followed by external `apksigner` platform re-signing. This is not used by the ROM-bundled module.
 
@@ -72,7 +71,7 @@ Gradle-only `tools:` annotations were removed so the manifest can be consumed di
 
 ## Hidden API Audit
 
-All hidden API calls are now isolated in `ReflectionRecentTasksBackend` and `HiddenApiBridge`.
+Recents operations now use the AOSP-only `PlatformRecentTasksBackend`.
 
 The known Android 14 signature mismatch was corrected:
 

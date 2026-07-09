@@ -2,10 +2,8 @@ package com.home.launcher
 
 import android.app.ActivityManager
 import android.app.WallpaperManager
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -26,13 +24,13 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.home.launcher.adapter.RecentAppsAdapter
 import com.home.launcher.adapter.RecentTaskTile
 import kotlin.math.roundToInt
 import com.home.launcher.data.AppIndex
+import com.home.launcher.service.NotificationAccess
 import com.home.launcher.service.NotificationEntry
 import com.home.launcher.service.NotificationListener
 import com.home.launcher.task.RecentTasksRepository
@@ -85,10 +83,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val notifReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            updateNotificationIcons()
-        }
+    private val notificationChangeListener: () -> Unit = {
+        handler.post { updateNotificationIcons() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,10 +145,7 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(notificationRefreshRunnable)
         handler.postDelayed(notificationRefreshRunnable, 2000)
 
-        LocalBroadcastManager.getInstance(this)
-            .registerReceiver(notifReceiver, IntentFilter(NotificationListener.ACTION_NOTIF_POSTED))
-        LocalBroadcastManager.getInstance(this)
-            .registerReceiver(notifReceiver, IntentFilter(NotificationListener.ACTION_NOTIF_REMOVED))
+        NotificationListener.addChangeListener(notificationChangeListener)
     }
 
     override fun onPause() {
@@ -163,7 +156,7 @@ class MainActivity : AppCompatActivity() {
         statsBar.stop()
         handler.removeCallbacks(notificationRefreshRunnable)
 
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(notifReceiver)
+        NotificationListener.removeChangeListener(notificationChangeListener)
     }
 
     // ============ VIEW INITIALIZATION ============
@@ -399,11 +392,8 @@ class MainActivity : AppCompatActivity() {
         notificationPlaceholder = findViewById<TextView>(R.id.notificationPlaceholder)!!
         notificationScroll = findViewById<View>(R.id.notificationScroll)!!
 
-        val enabledListeners = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-        val ourComponent = "$packageName/.service.NotificationListener"
-        val isEnabled = enabledListeners?.contains(ourComponent) == true
-        Log.d("NotifDiag", "enabled_notification_listeners=$enabledListeners")
-        Log.d("NotifDiag", "ourComponent=$ourComponent isEnabled=$isEnabled")
+        val isEnabled = NotificationAccess.isListenerAccessGranted(this)
+        Log.d("NotifDiag", "notificationListenerAccessGranted=$isEnabled")
     }
 
     private fun updateNotificationIcons() {

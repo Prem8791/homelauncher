@@ -21,7 +21,7 @@ This patch contains the app-side refactor:
 - removes direct `HiddenApi` usage
 - introduces `RecentTasksBackend`
 - introduces `RecentTasksRepository`
-- moves reflection into `system.hiddenapi`
+- adds the platform `ActivityTaskManager` recents backend
 - fixes `startActivityFromRecents(int, Bundle)`
 - adds TaskOrganizer backend placeholder
 - removes Gradle-only manifest `tools:` annotations
@@ -135,8 +135,8 @@ root/child task control, and `ActivityManager.RunningTaskInfo` callbacks, but it
 does not expose recents operations such as `getRecentTasks`, `removeTask`, or
 `startActivityFromRecents`. Privileged ROM builds use the formal
 `ActivityTaskManager` / `IActivityTaskManager` platform API via
-`PlatformRecentTasksBackend`. `ReflectionRecentTasksBackend` remains only as the
-Gradle/debug fallback.
+`PlatformRecentTasksBackend`. The legacy reflection backend has been removed from
+the app module.
 
 ## SELinux Policy
 
