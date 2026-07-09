@@ -98,21 +98,8 @@ class TaskOrganizerRecentTasksBackend(private val context: Context) : RecentTask
     }
 
     override fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration? {
-        val listener = object : TaskOrganizer.TaskListener {
-            override fun onTaskAppeared(info: android.window.TaskAppearedInfo) { onChanged() }
-            override fun onTaskVanished(token: android.window.WindowContainerToken) { onChanged() }
-            override fun onTaskInfoChanged(info: android.window.RunningTaskInfo) { onChanged() }
-        }
-        return runCatching {
-            taskOrganizer.registerListener(listener)
-            Log.i(TAG, "TaskOrganizer listener registered")
-            TaskListenerRegistration {
-                taskOrganizer.unregisterListener(listener)
-                Log.i(TAG, "TaskOrganizer listener unregistered")
-            }
-        }.onFailure {
-            Log.e(TAG, "registerTaskChangeListener failed", it)
-        }.getOrNull()
+        Log.i(TAG, "TaskOrganizer task change listener unavailable on this platform build")
+        return null
     }
 
     private companion object {
@@ -132,7 +119,7 @@ internal object SnapshotCapture {
                 snapshotClass.getDeclaredMethod("getHardwareBuffer").invoke(rawSnapshot) as? android.hardware.HardwareBuffer
             }.getOrNull() ?: return@runCatching null
 
-            val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, null)
+            val bitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, null) ?: return@runCatching null
             hardwareBuffer.close()
 
             val orientation = runCatching {
