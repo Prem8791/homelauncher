@@ -127,13 +127,16 @@ Files:
 
 ```text
 frameworks/base/core/java/android/window/TaskOrganizer.java
+app/src/aosp/java/com/home/launcher/system/platform/PlatformRecentTasksBackend.kt
 ```
 
-Status: deferred. Android 14 `TaskOrganizer` exposes organizer registration,
-root/child task control, and `ActivityManager.RunningTaskInfo` callbacks. It does
-not expose recents operations such as `getRecentTasks`, `removeTask`, or
-`startActivityFromRecents`; those remain on `ActivityTaskManager` /
-`IActivityTaskManager`. The active backend remains `ReflectionRecentTasksBackend`.
+Status: redirected. Android 14 `TaskOrganizer` exposes organizer registration,
+root/child task control, and `ActivityManager.RunningTaskInfo` callbacks, but it
+does not expose recents operations such as `getRecentTasks`, `removeTask`, or
+`startActivityFromRecents`. Privileged ROM builds use the formal
+`ActivityTaskManager` / `IActivityTaskManager` platform API via
+`PlatformRecentTasksBackend`. `ReflectionRecentTasksBackend` remains only as the
+Gradle/debug fallback.
 
 ## SELinux Policy
 

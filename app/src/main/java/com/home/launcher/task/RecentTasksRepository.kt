@@ -2,6 +2,7 @@ package com.home.launcher.task
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import com.home.launcher.system.hiddenapi.ReflectionRecentTasksBackend
 
 class RecentTasksRepository(
@@ -25,7 +26,24 @@ class RecentTasksRepository(
         backend.registerTaskChangeListener(onChanged)
 
     private companion object {
+        private const val TAG = "RecentTasksRepo"
+        private const val PLATFORM_BACKEND =
+            "com.home.launcher.system.platform.PlatformRecentTasksBackend"
+
         fun createBestBackend(context: Context): RecentTasksBackend {
+            val platformBackend = runCatching {
+                Class.forName(PLATFORM_BACKEND)
+                    .getConstructor(Context::class.java)
+                    .newInstance(context.applicationContext) as RecentTasksBackend
+            }.onFailure {
+                Log.i(TAG, "Platform recents backend unavailable; using reflection fallback", it)
+            }.getOrNull()
+
+            if (platformBackend != null) {
+                Log.i(TAG, "Using platform ActivityTaskManager recents backend")
+                return platformBackend
+            }
+
             return ReflectionRecentTasksBackend(context.applicationContext)
         }
     }
