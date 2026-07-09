@@ -189,7 +189,7 @@ Two new patches require OTA rebuild to take effect. Both are plain `git diff`-fo
 
 **Target**: `device/asus/I001D/bliss_I001D.mk`
 
-Adds the `inherit-product` line so that `HomeLauncherConfigOverlay` and `privapp-permissions-com.home.launcher` are included in the I001D build. Without this, the overlay never installs and `mRecentsComponent` stays on Launcher3.
+Adds the `inherit-product` line so that `HomeLauncher` and `privapp-permissions-com.home.launcher` are included in the I001D build. `HomeLauncherConfigOverlay` is intentionally excluded — it breaks gesture navigation until the QuickStep service contract is implemented (see `handover.md`).
 
 ```patch
 +$(call inherit-product, packages/apps/HomeLauncher/rom-integration/product/home_launcher_product.mk)
