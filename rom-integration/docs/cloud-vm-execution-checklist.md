@@ -88,13 +88,14 @@ Apply the patch that adds the `inherit-product` line to `device/asus/I001D/bliss
 git apply < packages/apps/HomeLauncher/rom-integration/patches/0007-integrate-home-launcher-product-mk.patch
 ```
 
-This includes `HomeLauncher` and `privapp-permissions-com.home.launcher` in `PRODUCT_PACKAGES` via the `home_launcher_product.mk` makefile fragment.
+This includes `HomeLauncher`, `HomeLauncherConfigOverlay`, and `privapp-permissions-com.home.launcher` in `PRODUCT_PACKAGES` via the `home_launcher_product.mk` makefile fragment.
 
 Expected outcome:
 
 ```text
 Inherit line present in device/asus/I001D/bliss_I001D.mk
 HomeLauncher selected in PRODUCT_PACKAGES
+HomeLauncherConfigOverlay selected in PRODUCT_PACKAGES
 privapp allowlist XML selected in PRODUCT_PACKAGES
 ```
 
