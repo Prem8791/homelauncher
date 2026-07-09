@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // === Startup diagnostics ===
-        Log.i("HomeLauncher", "versionCode=${BuildConfig.VERSION_CODE} versionName=${BuildConfig.VERSION_NAME}")
+        Log.i("HomeLauncher", "aospBuild=HomeLauncher system image build")
         Log.i("HomeLauncher", "package=$packageName uid=${android.os.Process.myUid()}")
         Log.i("HomeLauncher", "sdk=${Build.VERSION.SDK_INT} release=${Build.VERSION.RELEASE}")
         logPrivilegedPermission("REAL_GET_TASKS")

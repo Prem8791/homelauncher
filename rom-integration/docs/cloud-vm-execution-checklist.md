@@ -44,10 +44,14 @@ find packages/apps/HomeLauncher/app/src/main/java -name '*.kt' | wc -l
 
 ## 2. Add Soong Module
 
-Edit/copy:
+Use the root module that ships with this project. Do not leave a second file named
+`Android.bp` under `rom-integration/aosp`, because Soong parses every nested
+`Android.bp` file and duplicate module definitions will fail the build.
+
+Edit/copy only if the root module is missing:
 
 ```sh
-cp packages/apps/HomeLauncher/rom-integration/aosp/Android.bp \
+cp packages/apps/HomeLauncher/rom-integration/aosp/Android.bp.template \
    packages/apps/HomeLauncher/Android.bp
 mkdir -p packages/apps/HomeLauncher/permissions
 cp packages/apps/HomeLauncher/rom-integration/aosp/permissions/privapp-permissions-com.home.launcher.xml \

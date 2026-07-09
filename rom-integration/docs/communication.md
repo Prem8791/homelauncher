@@ -161,13 +161,13 @@ The following code changes address the architecture gaps identified above:
 | 1 | Silent failure path | `ReflectionRecentTasksBackend.kt:19-38` | `getRecentTasks` now uses `HiddenApiBridge.call()` and logs every intermediate step: whether iAtm is null, whether invoke() succeeded, raw return type, unwrapped list size |
 | 2 | No failure backoff | `SystemStatsProvider.kt:29-33,80-82,119-124` | Consecutive CPU read failures increment `consecutiveCpuDenials`. After 10 failures, `getCpuUsage()` returns -1 and `shouldThrottleCpuPoll()` returns true. `SystemStatsBar` switches to 10s interval when throttled and shows "⏸" instead of "⚙️ 0%" |
 | 3 | No permission self-verification | `MainActivity.kt:101-110,128-137` | `onCreate()` now logs every privileged permission check result via `checkSelfPermission()` with tag `PermCheck` |
-| 4 | No build fingerprint | `MainActivity.kt:98-100` | `onCreate()` now logs `BuildConfig.VERSION_CODE`, `VERSION_NAME`, package name, UID, SDK version |
+| 4 | No build fingerprint | `MainActivity.kt:98-100` | `onCreate()` now logs a static AOSP system-image build marker, package name, UID, SDK version |
 | 5 | Main-thread polling | *(deferred)* | All pollers still run on `Handler(Looper.getMainLooper())`. Moving I/O to a background thread requires coroutines or a thread-switching refactor beyond this pass |
 | 6 | Duplicate timer risk | `MainActivity.kt:69,74,84,143-144,148,153-154` | `onResume` now calls `handler.removeCallbacks(...)` before posting each timer. Runnable bodies check `pollingActive` flag before re-posting |
 | 7 | Activity pause kills polling | *(documented)* | Expected lifecycle behavior; the `pollingActive` flag ensures no timer re-posts after `onPause` |
 | 8 | Redundant self-filter | `MainActivity.kt:260` | Removed `.filter { it.packageName != packageName }` — `excludeFromRecents="true"` in the manifest already prevents this |
 | 9 | Thermal fallback | `SystemStatsProvider.kt:128-132` | Removed `/sys/class/thermal/thermal_zone0/temp` fallback. Temperature now only reads from `BatteryManager.EXTRA_TEMPERATURE` |
-| 10 | Missing build fingerprint | `Android.bp` | Added `version_code: 1, version_name: "1.0.0"` to match Gradle defaults for consistent `BuildConfig` values |
+| 10 | Missing build fingerprint | `MainActivity.kt` | Uses a static `aospBuild=HomeLauncher system image build` log that works in both Gradle and AOSP/Soong builds |
 
 ---
 
@@ -217,7 +217,7 @@ Without this, a missing `privapp-permissions-com.home.launcher.xml` inclusion �
 
 No logcat entry identifies which source commit or build variant is running. If the VM has a stale build or a different patch set, the runtime behavior cannot be correlated with the source tree.
 
-**Fix**: Log `BuildConfig.VERSION_NAME`, `BuildConfig.VERSION_CODE`, and `BuildConfig.BUILD_TYPE` in `onCreate()`.
+**Fix**: Log a static AOSP system-image build marker plus package name, UID, SDK, and Android release in `onCreate()`.
 
 ### 5. All Polling Runs on the Main Thread
 

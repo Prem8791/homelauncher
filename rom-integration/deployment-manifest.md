@@ -31,7 +31,8 @@ This patch contains the app-side refactor:
 Files:
 
 ```text
-rom-integration/aosp/Android.bp
+Android.bp
+rom-integration/aosp/Android.bp.template
 rom-integration/patches/0002-add-aosp-home-launcher-module.patch
 ```
 

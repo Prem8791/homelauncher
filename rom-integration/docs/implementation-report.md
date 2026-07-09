@@ -18,19 +18,21 @@ Six files changed across two concerns:
 
 ### 1. `Android.bp`
 
-**What**: Added `version_code` and `version_name` to the Soong module.
+**What**: Keeps the root Soong module minimal and AOSP-compatible.
 
 ```bp
-version_code: 1,
-version_name: "1.0.0",
+android_app {
+    name: "HomeLauncher",
+    ...
+}
 ```
 
-**Why**: The AOSP build generates `BuildConfig` from these fields. Without them, `BuildConfig.VERSION_CODE` defaults to 1 and `VERSION_NAME` to `""`, making the runtime fingerprint log useless.
+**Why**: The Bliss/AOSP Soong parser rejects unsupported app-version properties on this module, so runtime diagnostics must use an explicit static build marker instead of generated Gradle fields.
 
 **Verification** (on VM):
 ```
 adb logcat -d -s HomeLauncher
-# Expect: versionCode=1 versionName=1.0.0
+# Expect: aospBuild=HomeLauncher system image build
 ```
 
 ---
@@ -41,7 +43,7 @@ adb logcat -d -s HomeLauncher
 
 #### a) Build fingerprint (lines 98-100)
 ```kotlin
-Log.i("HomeLauncher", "versionCode=${BuildConfig.VERSION_CODE} versionName=${BuildConfig.VERSION_NAME}")
+Log.i("HomeLauncher", "aospBuild=HomeLauncher system image build")
 Log.i("HomeLauncher", "package=$packageName uid=${android.os.Process.myUid()}")
 Log.i("HomeLauncher", "sdk=${Build.VERSION.SDK_INT} release=${Build.VERSION.RELEASE}")
 ```
@@ -49,7 +51,7 @@ Log.i("HomeLauncher", "sdk=${Build.VERSION.SDK_INT} release=${Build.VERSION.RELE
 **Verification**:
 ```
 adb logcat -d -s HomeLauncher
-# Expect: versionCode=1 versionName=1.0.0
+# Expect: aospBuild=HomeLauncher system image build
 # Expect: package=com.home.launcher uid=...
 # Expect: sdk=34 release=...
 ```
@@ -201,7 +203,8 @@ adb logcat -c && adb shell am start -n com.home.launcher/.MainActivity && sleep 
 Expected output pattern:
 
 ```
-HomeLauncher: versionCode=1 versionName=1.0.0  package=com.home.launcher uid=...  sdk=34
+HomeLauncher: aospBuild=HomeLauncher system image build
+HomeLauncher: package=com.home.launcher uid=...  sdk=34
 PermCheck: android.permission.REAL_GET_TASKS -> GRANTED
 PermCheck: android.permission.MANAGE_ACTIVITY_TASKS -> GRANTED
 ... (all 10 granted)

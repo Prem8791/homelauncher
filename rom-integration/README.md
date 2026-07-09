@@ -7,7 +7,7 @@ This package is intentionally not applied to an AOSP tree yet. It contains revie
 ## Mandatory For First ROM-Bundled Launcher Boot
 
 1. Copy this project into `packages/apps/HomeLauncher`.
-2. Add `packages/apps/HomeLauncher/Android.bp`.
+2. Use the root `packages/apps/HomeLauncher/Android.bp`.
 3. Add `permissions/privapp-permissions-com.home.launcher.xml` and the matching `prebuilt_etc` module.
 4. Add `HomeLauncher` and `privapp-permissions-com.home.launcher` to the product package list.
 5. Build and flash `system.img`.
@@ -22,7 +22,8 @@ This package is intentionally not applied to an AOSP tree yet. It contains revie
 
 ## Files
 
-- `aosp/Android.bp`: Soong module for `HomeLauncher`.
+- `../Android.bp`: active Soong module for `HomeLauncher`.
+- `aosp/Android.bp.template`: reference copy for external AOSP integrations; keep the `.template` suffix so Soong does not parse a duplicate module.
 - `aosp/permissions/privapp-permissions-com.home.launcher.xml`: privileged permission allowlist.
 - `aosp/overlays/HomeLauncherConfigOverlay/`: optional static overlay for future Overview replacement.
 - `product/home_launcher_product.mk`: product makefile additions.
