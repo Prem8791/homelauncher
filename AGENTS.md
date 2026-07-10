@@ -57,14 +57,23 @@ adb shell am force-stop com.home.launcher && adb shell am start -n com.home.laun
 
 # Change Propagation Workflow
 
-Before starting any new code or resource change, ask the user which propagation path to use:
+Before starting any new code or resource change, ask the user which numbered propagation path to use. Treat "third and fourth" as path 3 plus GitHub:
 
-- Local only: edit and verify in `D:\AndroidProjects\home`.
-- Local + VM: edit locally, verify, then sync the changed source files to the cloud VM AOSP tree.
-- Local + VM + device: edit locally, sync to VM, build `HomeLauncher` with Soong, download the platform-signed APK, install it with `adb install -r`, and restart the launcher without flashing.
-- GitHub too: after the user explicitly approves commit/push, commit only the intended files and push to `origin/main`.
+1. Local only: edit and verify in `D:\Personal\AntigravityProjects\home`.
+2. Local + VM: edit locally, verify, then sync only the changed source/resource files to the cloud VM AOSP tree. Stop after verifying the VM files.
+3. Local + VM + device: edit and verify locally, sync and verify the VM files, then stop and hand the Soong build command to the user. After the user confirms the VM build completed, download the platform APK, install it with `adb install -r`, restart HomeLauncher, and check immediate crash logs.
+4. GitHub too: after the user explicitly selects this option, commit only the intended files and push to `origin/main`. This can be combined with paths 1, 2, or 3.
 
 Do not assume every change should be pushed to GitHub or installed on the device. Ask first.
+
+## VM Build Handoff Policy
+
+- Never run `m HomeLauncher` or any other VM/Soong build command on the user's behalf.
+- The agent owns local implementation, local checks, source sync, and verification that local and VM source files match.
+- Once the VM is prepared, stop and provide the exact build commands to the user.
+- Continue only after the user confirms the build is done.
+- After confirmation for path 3, the agent owns APK download, `adb install -r`, launcher restart, process verification, and crash-log inspection.
+- Do not ask the user to manually download or install the APK unless an actual access or device blocker prevents the agent from doing it.
 
 ## Current VM / No-Flash Test Path
 
@@ -80,7 +89,7 @@ HomeLauncher path: /home/premanandal1978/android/bliss-I001D/packages/apps/HomeL
 
 Local `gcloud` path:
 ```
-C:\Users\home\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd
+C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd
 ```
 
 Recommended no-flash loop for platform/AOSP-sensitive launcher changes:
@@ -103,25 +112,27 @@ For compatibility-sensitive Kotlin changes, run:
 ```
 /home/premanandal1978/android/bliss-I001D/packages/apps/HomeLauncher
 ```
-5. On the VM, build the AOSP platform-signed module:
+5. Stop and hand the following AOSP platform build commands to the user. Do not run them:
 ```
 cd ~/android/bliss-I001D
 source build/envsetup.sh
 lunch bliss_I001D-ap2a-userdebug
 m HomeLauncher
 ```
-6. Download the rebuilt platform APK:
+6. Wait for the user to confirm that the VM build completed.
+7. For path 3, download the rebuilt platform APK:
 ```
 gcloud compute scp --project customrom-501702 --zone us-south1-b premanandal1978@instance-20260707-045005:/home/premanandal1978/android/bliss-I001D/out/target/product/I001D/system/priv-app/HomeLauncher/HomeLauncher.apk .\HomeLauncher-system.apk
 ```
-7. Install over the existing system app without flashing:
+8. Install over the existing system app without flashing:
 ```
 adb install -r .\HomeLauncher-system.apk
 adb shell am force-stop com.home.launcher
 adb shell am start -n com.home.launcher/.MainActivity
 ```
-8. Check for immediate crashes:
+9. Verify the launcher process and check for immediate crashes:
 ```
+adb shell pidof com.home.launcher
 adb logcat -d -t 250 | findstr /i "AndroidRuntime FATAL HomeLauncher"
 ```
 
