@@ -36,6 +36,7 @@ class RecentAppsAdapter(
     fun updateTiles(newTiles: List<RecentTaskTile>) {
         val existingIds = tiles.map { it.taskId }.toSet()
         val newIds = newTiles.map { it.taskId }.toSet()
+        val sameOrder = tiles.map { it.taskId } == newTiles.map { it.taskId }
 
         val added = newTiles.filter { it.taskId !in existingIds }
         val removed = tiles.filter { it.taskId !in newIds }
@@ -51,14 +52,14 @@ class RecentAppsAdapter(
         val staleCache = thumbnailCache.keys.filter { it !in newIds }
         staleCache.forEach { thumbnailCache.remove(it) }
 
-        for (a in added.reversed()) {
-            tiles.add(0, a)
+        tiles.clear()
+        tiles.addAll(newTiles)
+
+        if (!sameOrder || added.isNotEmpty() || removed.isNotEmpty()) {
+            notifyDataSetChanged()
         }
 
-        if (added.isNotEmpty() || removed.isNotEmpty()) {
-            notifyDataSetChanged()
-            refreshThumbnails()
-        }
+        refreshThumbnails()
     }
 
     fun removeTile(taskId: Int) {

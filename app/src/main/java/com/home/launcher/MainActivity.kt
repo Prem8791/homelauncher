@@ -76,6 +76,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var todayDate: TextView
     private lateinit var todayEvent: TextView
     private lateinit var todayTasks: TextView
+    private var todayEventId: Long? = null
+    private var todayTaskEventId: Long? = null
     private lateinit var morphingEngine: MorphingEngine
 
     // Data
@@ -159,6 +161,7 @@ class MainActivity : AppCompatActivity() {
         launcherApps = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         initDock()
         updateAlphabetAvailability()
+        registerTaskListener()
     }
 
     private fun logPrivilegedPermission(name: String) {
@@ -180,7 +183,6 @@ class MainActivity : AppCompatActivity() {
         pollingActive = true
         refreshRecentTasks()
         refreshAppIndex()
-        registerTaskListener()
         handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 3000)
         statsBar.start()
@@ -194,13 +196,17 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         pollingActive = false
-        unregisterTaskListener()
         handler.removeCallbacks(refreshRunnable)
         statsBar.stop()
         handler.removeCallbacks(notificationRefreshRunnable)
         launcherApps?.unregisterCallback(launcherAppsCallback)
 
         NotificationListener.removeChangeListener(notificationChangeListener)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterTaskListener()
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -817,7 +823,9 @@ class MainActivity : AppCompatActivity() {
     private fun registerTaskListener() {
         if (taskListenerRegistration == null) {
             taskListenerRegistration = recentTasksRepository.registerTaskChangeListener {
-                runOnUiThread { refreshRecentTasks() }
+                if (pollingActive) {
+                    runOnUiThread { refreshRecentTasks() }
+                }
             }
         }
     }
@@ -1024,16 +1032,23 @@ class MainActivity : AppCompatActivity() {
         todayDate = findViewById<TextView>(R.id.todayDate)!!
         todayEvent = findViewById<TextView>(R.id.todayEvent)!!
         todayTasks = findViewById<TextView>(R.id.todayTasks)!!
+        todayDate.setOnClickListener { openCalendarDay() }
+        todayEvent.setOnClickListener { todayEventId?.let { openCalendarEvent(it) } }
+        todayTasks.setOnClickListener { todayTaskEventId?.let { openCalendarEvent(it) } }
         refreshToday()
     }
 
     private fun refreshToday() {
         val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
         todayDate.text = sdf.format(Date())
+        todayEventId = null
+        todayTaskEventId = null
+        updateTodayClickTargets()
 
         if (checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             todayEvent.text = "Calendar permission needed"
             todayTasks.text = ""
+            updateTodayClickTargets()
             return
         }
 
@@ -1056,7 +1071,11 @@ class MainActivity : AppCompatActivity() {
 
             val cursor = resolver.query(
                 instancesUri,
-                arrayOf(CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN),
+                arrayOf(
+                    CalendarContract.Instances.EVENT_ID,
+                    CalendarContract.Instances.TITLE,
+                    CalendarContract.Instances.BEGIN
+                ),
                 null,
                 null,
                 "${CalendarContract.Instances.BEGIN} ASC"
@@ -1067,9 +1086,11 @@ class MainActivity : AppCompatActivity() {
             } else cursor.use {
                 val events = mutableListOf<String>()
                 while (it.moveToNext() && events.size < 3) {
-                    val title = it.getString(0) ?: "Event"
-                    val start = it.getLong(1)
+                    val eventId = it.getLong(0)
+                    val title = it.getString(1) ?: "Event"
+                    val start = it.getLong(2)
                     val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(start))
+                    if (todayEventId == null) todayEventId = eventId
                     events.add("$time $title")
                 }
                 todayEvent.text = if (events.isEmpty()) "No events today" else events.joinToString("\n")
@@ -1096,6 +1117,7 @@ class MainActivity : AppCompatActivity() {
                 while (it.moveToNext() && tasks.size < 3) {
                     val eventId = it.getLong(0)
                     val title = getCalendarEventTitle(eventId) ?: "Reminder"
+                    if (todayTaskEventId == null) todayTaskEventId = eventId
                     tasks.add("☐ $title")
                 }
                 todayTasks.text = tasks.joinToString("\n")
@@ -1103,6 +1125,41 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("HomeLauncher", "Calendar reminder query failed", e)
             todayTasks.text = ""
+        }
+        updateTodayClickTargets()
+    }
+
+    private fun updateTodayClickTargets() {
+        todayDate.isClickable = true
+        todayEvent.isClickable = todayEventId != null
+        todayTasks.isClickable = todayTaskEventId != null
+        todayDate.alpha = 1f
+        todayEvent.alpha = if (todayEventId != null) 1f else 0.75f
+        todayTasks.alpha = if (todayTaskEventId != null) 1f else 0.75f
+    }
+
+    private fun openCalendarDay() {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = CalendarContract.CONTENT_URI.buildUpon()
+                .appendPath("time")
+                .appendPath(Calendar.getInstance().timeInMillis.toString())
+                .build()
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot open calendar", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openCalendarEvent(eventId: Long) {
+        try {
+            val intent = Intent(
+                Intent.ACTION_VIEW,
+                ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+            )
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Cannot open event", Toast.LENGTH_SHORT).show()
         }
     }
 

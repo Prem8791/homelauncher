@@ -22,6 +22,8 @@ class AppIndex(private val context: Context) {
 
     fun load() {
         val pm = context.packageManager
+        val prefs = context.getSharedPreferences("favourites", Context.MODE_PRIVATE)
+        val favSet = prefs.getStringSet("favs", emptySet<String>()) ?: emptySet<String>()
         val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
         val launchIntent = android.content.Intent(android.content.Intent.ACTION_MAIN)
             .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
@@ -36,7 +38,8 @@ class AppIndex(private val context: Context) {
                 AppEntry(
                     packageName = info.packageName,
                     label = label,
-                    icon = info.loadIcon(pm)
+                    icon = info.loadIcon(pm),
+                    isFavourite = info.packageName in favSet
                 )
             }
             .sortedBy { it.label.lowercase() }
@@ -56,8 +59,6 @@ class AppIndex(private val context: Context) {
             }
         }
 
-        val prefs = context.getSharedPreferences("favourites", Context.MODE_PRIVATE)
-        val favSet = prefs.getStringSet("favs", emptySet<String>()) ?: emptySet<String>()
         favourites = entries.filter { it.packageName in favSet }
             .toMutableList()
 
@@ -86,6 +87,7 @@ class AppIndex(private val context: Context) {
             favourites.add(entry)
         }
         prefs.edit().putStringSet("favs", favSet).apply()
+        load()
     }
 
     fun isFavourite(packageName: String): Boolean {
