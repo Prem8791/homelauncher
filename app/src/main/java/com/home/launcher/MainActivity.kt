@@ -292,8 +292,8 @@ class MainActivity : AppCompatActivity() {
         if (apps.isEmpty()) {
             return
         }
-        leftColumn.visibility = View.GONE
-        rightColumn.visibility = View.GONE
+        leftColumn.visibility = View.INVISIBLE
+        rightColumn.visibility = View.INVISIBLE
         AppListOverlay.show(this, centerColumn, title, apps) {
             leftColumn.visibility = View.VISIBLE
             rightColumn.visibility = View.VISIBLE
@@ -322,14 +322,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateRecentTileHeight() {
         recentAppsGrid.post {
-            val gridH = recentAppsGrid.height
-            val padTop = recentAppsGrid.paddingTop
-            val padBottom = recentAppsGrid.paddingBottom
-            val gap = 0
-            val rows = 3
-            val h = ((gridH - padTop - padBottom - (rows - 1) * gap) / rows.toFloat()).roundToInt()
-            if (h > 0) {
-                recentAppsAdapter.setTileHeight(h)
+            val gridW = recentAppsGrid.width
+            val padLeft = recentAppsGrid.paddingLeft
+            val padRight = recentAppsGrid.paddingRight
+            val cols = 3
+            val colWidth = (gridW - padLeft - padRight) / cols
+
+            val density = resources.displayMetrics.density
+            val tilePadding = (4 * density).roundToInt()
+            val displayRatio = resources.displayMetrics.widthPixels.toFloat() /
+                resources.displayMetrics.heightPixels.toFloat()
+            val tileH = ((colWidth - tilePadding) / displayRatio + tilePadding).roundToInt()
+
+            if (tileH > 0) {
+                recentAppsAdapter.setTileHeight(tileH)
                 recentAppsAdapter.notifyDataSetChanged()
             }
         }

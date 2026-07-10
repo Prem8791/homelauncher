@@ -121,14 +121,7 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
                 return@runCatching null
             }
 
-            val orientation = snapshot.orientation
-            if (orientation == 0) {
-                bitmap
-            } else {
-                val matrix = Matrix()
-                matrix.postRotate(orientation.toFloat())
-                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            }
+            bitmap
         }.onFailure {
             Log.w(TAG, "getTaskSnapshot failed for task $taskId", it)
         }.getOrNull()

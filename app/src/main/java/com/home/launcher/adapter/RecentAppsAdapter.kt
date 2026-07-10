@@ -137,7 +137,6 @@ class RecentAppsAdapter(
             val snapshot = thumbnailCache[tile.taskId]
             if (snapshot != null) {
                 thumbnail.setImageBitmap(snapshot)
-                thumbnail.scaleType = ImageView.ScaleType.FIT_CENTER
                 appIcon.visibility = View.GONE
             } else {
                 thumbnail.setImageDrawable(null)
