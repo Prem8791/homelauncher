@@ -17,6 +17,9 @@
     <!-- ============ TODAY (CALENDAR) ============ -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
 
+    <!-- ============ WEATHER ============ -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- ============ APP DISCOVERY ============ -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 

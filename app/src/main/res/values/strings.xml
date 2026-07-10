@@ -9,4 +9,6 @@
     <string name="star">*</string>
     <string name="weather_title">Weather</string>
     <string name="weather_unavailable">Not configured</string>
+    <string name="weather_loading">Updating weather...</string>
+    <string name="weather_update_failed">Unable to update</string>
 </resources>

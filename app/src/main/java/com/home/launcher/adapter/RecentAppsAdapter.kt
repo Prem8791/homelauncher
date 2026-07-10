@@ -26,7 +26,7 @@ class RecentAppsAdapter(
 ) : RecyclerView.Adapter<RecentAppsAdapter.TileViewHolder>() {
 
     private val tiles = mutableListOf<RecentTaskTile>()
-    private val thumbnailCache = mutableMapOf<Int, Bitmap?>()
+    private val thumbnailCache = mutableMapOf<Int, Bitmap>()
     private var tileHeight = 0
 
     fun setTileHeight(height: Int) {
@@ -59,7 +59,7 @@ class RecentAppsAdapter(
             notifyDataSetChanged()
         }
 
-        refreshThumbnails()
+        loadMissingThumbnails()
     }
 
     fun removeTile(taskId: Int) {
@@ -80,13 +80,15 @@ class RecentAppsAdapter(
     fun isEmpty(): Boolean = tiles.isEmpty()
     fun getTileAt(position: Int): RecentTaskTile = tiles[position]
 
-    private fun refreshThumbnails() {
+    private fun loadMissingThumbnails() {
         for (i in tiles.indices) {
             val tile = tiles[i]
-            if (tile.taskId > 0) {
+            if (tile.taskId > 0 && !thumbnailCache.containsKey(tile.taskId)) {
                 val bmp = thumbnailLoader(tile.taskId)
-                thumbnailCache[tile.taskId] = bmp
-                notifyItemChanged(i)
+                if (bmp != null) {
+                    thumbnailCache[tile.taskId] = bmp
+                    notifyItemChanged(i)
+                }
             }
         }
     }
@@ -126,7 +128,7 @@ class RecentAppsAdapter(
             val snapshot = thumbnailCache[tile.taskId]
             if (snapshot != null) {
                 thumbnail.setImageBitmap(snapshot)
-                thumbnail.scaleType = ImageView.ScaleType.CENTER_CROP
+                thumbnail.scaleType = ImageView.ScaleType.FIT_CENTER
                 appIcon.visibility = View.GONE
             } else {
                 thumbnail.setImageDrawable(null)
