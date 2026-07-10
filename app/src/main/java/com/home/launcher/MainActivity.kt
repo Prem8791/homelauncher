@@ -6,6 +6,7 @@ import android.content.ContentUris
 import android.app.WallpaperManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.net.Uri
@@ -84,6 +85,24 @@ class MainActivity : AppCompatActivity() {
     private var taskListenerRegistration: TaskListenerRegistration? = null
     private var pollingActive = false
     private val handler = Handler(Looper.getMainLooper())
+    private var launcherApps: LauncherApps? = null
+    private val launcherAppsCallback = object : LauncherApps.Callback() {
+        override fun onPackageAdded(packageName: String, user: android.os.UserHandle) {
+            refreshAppIndex()
+        }
+        override fun onPackageRemoved(packageName: String, user: android.os.UserHandle) {
+            refreshAppIndex()
+        }
+        override fun onPackageChanged(packageName: String, user: android.os.UserHandle) {
+            refreshAppIndex()
+        }
+        override fun onPackagesAvailable(packageNames: Array<String>, user: android.os.UserHandle, replacing: Boolean) {
+            refreshAppIndex()
+        }
+        override fun onPackagesUnavailable(packageNames: Array<String>, user: android.os.UserHandle, replacing: Boolean) {
+            refreshAppIndex()
+        }
+    }
     private val refreshRunnable = object : Runnable {
         override fun run() {
             refreshRecentTasks()
@@ -137,6 +156,7 @@ class MainActivity : AppCompatActivity() {
         initStatsBar()
 
         appIndex.load()
+        launcherApps = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
         initDock()
         updateAlphabetAvailability()
     }
@@ -159,6 +179,7 @@ class MainActivity : AppCompatActivity() {
         rightColumn.visibility = View.VISIBLE
         pollingActive = true
         refreshRecentTasks()
+        refreshAppIndex()
         registerTaskListener()
         handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 3000)
@@ -167,6 +188,7 @@ class MainActivity : AppCompatActivity() {
         handler.postDelayed(notificationRefreshRunnable, 2000)
 
         NotificationListener.addChangeListener(notificationChangeListener)
+        launcherApps?.registerCallback(launcherAppsCallback, handler)
     }
 
     override fun onPause() {
@@ -176,6 +198,7 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(refreshRunnable)
         statsBar.stop()
         handler.removeCallbacks(notificationRefreshRunnable)
+        launcherApps?.unregisterCallback(launcherAppsCallback)
 
         NotificationListener.removeChangeListener(notificationChangeListener)
     }
@@ -264,6 +287,12 @@ class MainActivity : AppCompatActivity() {
                 tv.setTextColor(resources.getColor(R.color.alphabet_letter_disabled, theme))
             }
         }
+    }
+
+    private fun refreshAppIndex() {
+        appIndex.load()
+        updateAlphabetAvailability()
+        refreshDock()
     }
 
     private fun onLetterTap(letter: Char) {
