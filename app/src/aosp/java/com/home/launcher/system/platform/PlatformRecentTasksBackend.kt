@@ -134,7 +134,10 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
         }.getOrNull()
     }
 
-    private fun captureTaskAfterBackground(taskId: Int) {
+    private fun captureTaskAfterBackground(
+        taskId: Int,
+        onSnapshotChanged: (snapshotTaskId: Int?) -> Unit
+    ) {
         handler.postDelayed({
             val bitmap = readTaskSnapshot(taskId, false)
             if (bitmap == null) {
@@ -147,6 +150,7 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
             }
             snapshotCache[taskId] = bitmap
             Log.d(TAG, "Cached background snapshot for task $taskId")
+            onSnapshotChanged(taskId)
         }, SNAPSHOT_CAPTURE_DELAY_MS)
     }
 
@@ -205,19 +209,21 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
         }.getOrDefault(false)
     }
 
-    override fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration? {
+    override fun registerTaskChangeListener(
+        onChanged: (snapshotTaskId: Int?) -> Unit
+    ): TaskListenerRegistration? {
         val listener = object : TaskStackListener() {
             override fun onTaskStackChanged() {
-                onChanged()
+                onChanged(null)
             }
 
             override fun onTaskCreated(taskId: Int, componentName: android.content.ComponentName?) {
-                onChanged()
+                onChanged(null)
             }
 
             override fun onTaskRemoved(taskId: Int) {
                 snapshotCache.remove(taskId)
-                onChanged()
+                onChanged(null)
             }
 
             override fun onTaskMovedToFront(taskInfo: ActivityManager.RunningTaskInfo?) {
@@ -230,13 +236,13 @@ class PlatformRecentTasksBackend(private val context: Context) : RecentTasksBack
                     previousTaskId != taskId &&
                     previousPackageName != context.packageName
                 ) {
-                    captureTaskAfterBackground(previousTaskId)
+                    captureTaskAfterBackground(previousTaskId, onChanged)
                 }
                 if (taskId != null) {
                     lastForegroundTaskId = taskId
                     lastForegroundPackageName = packageName
                 }
-                onChanged()
+                onChanged(null)
             }
         }
 

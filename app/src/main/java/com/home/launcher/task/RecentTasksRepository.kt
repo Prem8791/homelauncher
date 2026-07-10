@@ -21,7 +21,7 @@ class RecentTasksRepository(
 
     fun forceStopPackage(packageName: String): Boolean = backend.forceStopPackage(packageName)
 
-    fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration? =
+    fun registerTaskChangeListener(onChanged: (snapshotTaskId: Int?) -> Unit): TaskListenerRegistration? =
         backend.registerTaskChangeListener(onChanged)
 
     private companion object {
@@ -41,5 +41,7 @@ private object UnavailableRecentTasksBackend : RecentTasksBackend {
     override fun startTaskFromRecents(taskId: Int): Boolean = false
     override fun getTaskSnapshot(taskId: Int, isLowResolution: Boolean): Bitmap? = null
     override fun forceStopPackage(packageName: String): Boolean = false
-    override fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration? = null
+    override fun registerTaskChangeListener(
+        onChanged: (snapshotTaskId: Int?) -> Unit
+    ): TaskListenerRegistration? = null
 }

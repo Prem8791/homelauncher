@@ -22,6 +22,6 @@ class RecentTasksRepository(
 
     fun forceStopPackage(packageName: String): Boolean = backend.forceStopPackage(packageName)
 
-    fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration? =
+    fun registerTaskChangeListener(onChanged: (snapshotTaskId: Int?) -> Unit): TaskListenerRegistration? =
         backend.registerTaskChangeListener(onChanged)
 }

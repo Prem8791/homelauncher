@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
     private val recentTasksRepository by lazy { RecentTasksRepository(this) }
     private lateinit var statsBar: SystemStatsBar
     private var taskListenerRegistration: TaskListenerRegistration? = null
+    private val pendingSnapshotRefreshes = mutableSetOf<Int>()
     private var pollingActive = false
     private val handler = Handler(Looper.getMainLooper())
     private var launcherApps: LauncherApps? = null
@@ -185,6 +186,7 @@ class MainActivity : AppCompatActivity() {
         rightColumn.visibility = View.VISIBLE
         pollingActive = true
         refreshRecentTasks()
+        refreshPendingSnapshots()
         refreshAppIndex()
         handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 3000)
@@ -787,12 +789,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun registerTaskListener() {
         if (taskListenerRegistration == null) {
-            taskListenerRegistration = recentTasksRepository.registerTaskChangeListener {
-                if (pollingActive) {
-                    runOnUiThread { refreshRecentTasks() }
+            taskListenerRegistration = recentTasksRepository.registerTaskChangeListener { snapshotTaskId ->
+                runOnUiThread {
+                    if (snapshotTaskId != null) {
+                        pendingSnapshotRefreshes.add(snapshotTaskId)
+                    }
+                    if (pollingActive) {
+                        refreshRecentTasks()
+                        refreshPendingSnapshots()
+                    }
                 }
             }
         }
+    }
+
+    private fun refreshPendingSnapshots() {
+        if (pendingSnapshotRefreshes.isEmpty()) return
+        val taskIds = pendingSnapshotRefreshes.toList()
+        pendingSnapshotRefreshes.clear()
+        taskIds.forEach { taskId -> recentAppsAdapter.refreshThumbnail(taskId) }
     }
 
     private fun unregisterTaskListener() {

@@ -71,6 +71,15 @@ class RecentAppsAdapter(
         }
     }
 
+    fun refreshThumbnail(taskId: Int) {
+        val index = tiles.indexOfFirst { it.taskId == taskId }
+        if (index < 0) return
+
+        val bitmap = thumbnailLoader(taskId) ?: return
+        thumbnailCache[taskId] = bitmap
+        notifyItemChanged(index)
+    }
+
     fun clearAll() {
         tiles.clear()
         thumbnailCache.clear()

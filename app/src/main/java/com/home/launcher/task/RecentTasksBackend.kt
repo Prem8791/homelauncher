@@ -9,5 +9,5 @@ interface RecentTasksBackend {
     fun startTaskFromRecents(taskId: Int): Boolean
     fun getTaskSnapshot(taskId: Int, isLowResolution: Boolean = false): Bitmap?
     fun forceStopPackage(packageName: String): Boolean
-    fun registerTaskChangeListener(onChanged: () -> Unit): TaskListenerRegistration?
+    fun registerTaskChangeListener(onChanged: (snapshotTaskId: Int?) -> Unit): TaskListenerRegistration?
 }
