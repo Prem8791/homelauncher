@@ -33,6 +33,9 @@ HomeLauncher_AOSP_Source/
 HomeLauncher_AOSP_Source.zip
 _readonly_source/
 
+# SSH keys - do not publish
+.gcloud-ssh/
+
 # OS noise
 Thumbs.db
 desktop.ini
