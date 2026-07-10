@@ -11,7 +11,6 @@ android_app {
     ],
     exclude_srcs: [
         "app/src/main/java/com/home/launcher/task/RecentTasksRepository.kt",
-        "app/src/main/java/com/home/launcher/service/NotificationAccess.kt",
     ],
     resource_dirs: ["app/src/main/res"],
 

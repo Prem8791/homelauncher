@@ -18,7 +18,6 @@ import android.util.Log
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -37,9 +36,6 @@ import com.home.launcher.adapter.RecentAppsAdapter
 import com.home.launcher.adapter.RecentTaskTile
 import kotlin.math.roundToInt
 import com.home.launcher.data.AppIndex
-import com.home.launcher.service.NotificationAccess
-import com.home.launcher.service.NotificationEntry
-import com.home.launcher.service.NotificationListener
 import com.home.launcher.task.RecentTasksRepository
 import com.home.launcher.task.TaskListenerRegistration
 import com.home.launcher.ui.AppListOverlay
@@ -70,12 +66,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var killAllButton: TextView
     private lateinit var statusArea: LinearLayout
     private lateinit var dockContainer: LinearLayout
-    private lateinit var notificationContainer: LinearLayout
-    private lateinit var notificationPlaceholder: TextView
-    private lateinit var notificationScroll: View
     private lateinit var todayDate: TextView
     private lateinit var todayEvent: TextView
     private lateinit var todayTasks: TextView
+    private lateinit var clockTime: TextView
+    private lateinit var clockMeta: TextView
+    private lateinit var weatherSummary: TextView
     private var todayEventId: Long? = null
     private var todayTaskEventId: Long? = null
     private lateinit var morphingEngine: MorphingEngine
@@ -111,19 +107,11 @@ class MainActivity : AppCompatActivity() {
             if (pollingActive) handler.postDelayed(this, 3000)
         }
     }
-
-    // Notification expansion state
-    private var expandedPackage: String? = null
-    private var expandedContainer: LinearLayout? = null
-    private val notificationRefreshRunnable = object : Runnable {
+    private val clockRefreshRunnable = object : Runnable {
         override fun run() {
-            updateNotificationIcons()
-            if (pollingActive) handler.postDelayed(this, 2000)
+            refreshClock()
+            if (pollingActive) handler.postDelayed(this, 1000)
         }
-    }
-
-    private val notificationChangeListener: () -> Unit = {
-        handler.post { updateNotificationIcons() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -153,8 +141,9 @@ class MainActivity : AppCompatActivity() {
         initRecentApps()
         initKillAll()
         initSettings()
-        initNotifications()
         initToday()
+        initClock()
+        initWeather()
         initStatsBar()
 
         appIndex.load()
@@ -186,10 +175,8 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(refreshRunnable)
         handler.postDelayed(refreshRunnable, 3000)
         statsBar.start()
-        handler.removeCallbacks(notificationRefreshRunnable)
-        handler.postDelayed(notificationRefreshRunnable, 2000)
-
-        NotificationListener.addChangeListener(notificationChangeListener)
+        handler.removeCallbacks(clockRefreshRunnable)
+        handler.post(clockRefreshRunnable)
         launcherApps?.registerCallback(launcherAppsCallback, handler)
     }
 
@@ -198,36 +185,13 @@ class MainActivity : AppCompatActivity() {
         pollingActive = false
         handler.removeCallbacks(refreshRunnable)
         statsBar.stop()
-        handler.removeCallbacks(notificationRefreshRunnable)
+        handler.removeCallbacks(clockRefreshRunnable)
         launcherApps?.unregisterCallback(launcherAppsCallback)
-
-        NotificationListener.removeChangeListener(notificationChangeListener)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterTaskListener()
-    }
-
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (
-            event.action == MotionEvent.ACTION_DOWN &&
-            expandedPackage != null &&
-            ::notificationScroll.isInitialized
-        ) {
-            val notificationBounds = android.graphics.Rect()
-            notificationScroll.getGlobalVisibleRect(notificationBounds)
-            val touchedNotifications = notificationBounds.contains(
-                event.rawX.toInt(),
-                event.rawY.toInt()
-            )
-            if (!touchedNotifications) {
-                expandedPackage = null
-                expandedContainer = null
-                updateNotificationIcons()
-            }
-        }
-        return super.dispatchTouchEvent(event)
     }
 
     @Deprecated("Uses legacy back handling for platform compatibility with the AOSP build target.")
@@ -457,10 +421,6 @@ class MainActivity : AppCompatActivity() {
             morphingEngine.collapse()
             startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
         }
-        addSettingsAction(container, "Notification Access") {
-            morphingEngine.collapse()
-            openNotificationAccess()
-        }
         addSettingsAction(container, "Dock Apps") {
             morphingEngine.collapse()
             showDockSettings()
@@ -496,7 +456,6 @@ class MainActivity : AppCompatActivity() {
             "Manage Permissions",
             "Set Wallpaper",
             "Battery Settings",
-            "Notification Access",
             "Dock Apps",
             "Dock Height"
         )
@@ -508,9 +467,8 @@ class MainActivity : AppCompatActivity() {
                     0 -> openAppPermissions()
                     1 -> showWallpaperOptions()
                     2 -> startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-                    3 -> openNotificationAccess()
-                    4 -> showDockSettings()
-                    5 -> showDockHeightDialog()
+                    3 -> showDockSettings()
+                    4 -> showDockHeightDialog()
                 }
             }
             .show()
@@ -523,14 +481,6 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "Cannot open permissions", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun openNotificationAccess() {
-        try {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        } catch (e: Exception) {
-            Toast.makeText(this, "Cannot open notification settings", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -835,198 +785,28 @@ class MainActivity : AppCompatActivity() {
         taskListenerRegistration = null
     }
 
-    // ============ NOTIFICATIONS ============
-
-    private fun initNotifications() {
-        notificationContainer = findViewById<LinearLayout>(R.id.notificationIcons)!!
-        notificationPlaceholder = findViewById<TextView>(R.id.notificationPlaceholder)!!
-        notificationScroll = findViewById<View>(R.id.notificationScroll)!!
-
-        val isEnabled = NotificationAccess.isListenerAccessGranted(this)
-        Log.d("NotifDiag", "notificationListenerAccessGranted=$isEnabled")
-    }
-
-    private fun updateNotificationIcons() {
-        val packages = NotificationListener.getActivePackages()
-        notificationContainer.removeAllViews()
-
-        if (!NotificationListener.isConnected() && packages.isEmpty()) {
-            notificationPlaceholder.visibility = View.VISIBLE
-            notificationPlaceholder.text = "Notifications off — tap ⚙ to enable"
-            notificationPlaceholder.setOnClickListener {
-                openNotificationAccess()
-            }
-            return
-        }
-
-        notificationPlaceholder.visibility = if (packages.isEmpty()) View.VISIBLE else View.GONE
-        notificationPlaceholder.text = getString(R.string.no_notifications)
-        notificationPlaceholder.setOnClickListener(null)
-
-        val currentExpandedPackage = expandedPackage
-        if (currentExpandedPackage != null && packages.containsKey(currentExpandedPackage)) {
-            showExpandedNotifications(currentExpandedPackage)
-            return
-        }
-        expandedPackage = null
-        expandedContainer = null
-
-        for ((pkg, count) in packages) {
-            val iconView = createNotificationIcon(pkg, count)
-            notificationContainer.addView(iconView)
-        }
-    }
-
-    private fun createNotificationIcon(pkg: String, count: Int): View {
-        val iconSize = (36 * resources.displayMetrics.density).toInt()
-        val frame = LinearLayout(this)
-        frame.layoutParams = LinearLayout.LayoutParams(iconSize + 8, iconSize + 8)
-        frame.gravity = Gravity.CENTER
-        frame.orientation = LinearLayout.VERTICAL
-        frame.setOnClickListener {
-            expandedPackage = pkg
-            updateNotificationIcons()
-        }
-
-        val icon = ImageView(this)
-        icon.layoutParams = LinearLayout.LayoutParams(iconSize, iconSize)
-        try {
-            icon.setImageDrawable(packageManager.getApplicationIcon(pkg))
-        } catch (e: Exception) {
-            icon.setImageDrawable(null)
-        }
-
-        val badge = TextView(this)
-        badge.layoutParams = LinearLayout.LayoutParams(
-            (14 * resources.displayMetrics.density).toInt(),
-            (14 * resources.displayMetrics.density).toInt()
-        )
-        badge.gravity = Gravity.CENTER
-        badge.text = if (count > 99) "99+" else count.toString()
-        badge.setTextColor(android.graphics.Color.WHITE)
-        badge.textSize = 8f
-        badge.setBackgroundResource(R.drawable.close_button_bg)
-        badge.textAlignment = View.TEXT_ALIGNMENT_CENTER
-
-        val badgeContainer = FrameLayout(this)
-        badgeContainer.layoutParams = LinearLayout.LayoutParams(iconSize + 8, iconSize + 8)
-        badgeContainer.addView(icon)
-        val badgeLp = FrameLayout.LayoutParams(
-            (16 * resources.displayMetrics.density).toInt(),
-            (16 * resources.displayMetrics.density).toInt()
-        )
-        badgeLp.gravity = Gravity.TOP or Gravity.END
-        badgeContainer.addView(badge, badgeLp)
-        frame.addView(badgeContainer)
-
-        return frame
-    }
-
-    private fun showExpandedNotifications(pkg: String) {
-        notificationContainer.removeAllViews()
-
-        val entries = NotificationListener.getNotificationsForPackage(pkg)
-        val container = LinearLayout(this)
-        container.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.MATCH_PARENT
-        )
-        container.orientation = LinearLayout.VERTICAL
-        container.setGravity(Gravity.TOP)
-        container.setBackgroundColor(android.graphics.Color.parseColor("#CC1A2A4E"))
-        container.setPadding(8, 4, 8, 4)
-
-        for (entry in entries) {
-            val notifView = createNotificationCard(entry)
-            container.addView(notifView)
-        }
-
-        notificationContainer.addView(container)
-        expandedContainer = container
-
-        notificationScroll.setOnClickListener { v ->
-            if (expandedPackage != null) {
-                expandedPackage = null
-                updateNotificationIcons()
-            }
-        }
-    }
-
-    private fun createNotificationCard(entry: NotificationEntry): View {
-        val card = LinearLayout(this)
-        card.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-        card.orientation = LinearLayout.HORIZONTAL
-        card.setPadding(8, 4, 8, 4)
-        card.setBackgroundColor(android.graphics.Color.parseColor("#332A4A6E"))
-
-        val icon = ImageView(this)
-        icon.layoutParams = LinearLayout.LayoutParams(32, 32)
-        icon.setImageDrawable(entry.icon)
-        card.addView(icon)
-
-        val textLayout = LinearLayout(this)
-        textLayout.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        textLayout.orientation = LinearLayout.VERTICAL
-        textLayout.setPadding(8, 0, 0, 0)
-
-        val titleView = TextView(this)
-        titleView.text = entry.title ?: entry.appName
-        titleView.setTextColor(android.graphics.Color.WHITE)
-        titleView.textSize = 12f
-        titleView.maxLines = 1
-        textLayout.addView(titleView)
-
-        val bodyView = TextView(this)
-        bodyView.text = entry.text ?: ""
-        bodyView.setTextColor(android.graphics.Color.parseColor("#AAFFFFFF"))
-        bodyView.textSize = 10f
-        bodyView.maxLines = 2
-        textLayout.addView(bodyView)
-
-        card.addView(textLayout)
-
-        val timeView = TextView(this)
-        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-        timeView.text = sdf.format(Date(entry.timestamp))
-        timeView.setTextColor(android.graphics.Color.parseColor("#88FFFFFF"))
-        timeView.textSize = 9f
-        card.addView(timeView)
-
-        val dismissBtn = TextView(this)
-        val btnSize = (28 * resources.displayMetrics.density).toInt()
-        dismissBtn.layoutParams = LinearLayout.LayoutParams(btnSize, btnSize)
-        dismissBtn.text = "✕"
-        dismissBtn.setTextColor(android.graphics.Color.parseColor("#AAFFFFFF"))
-        dismissBtn.textSize = 12f
-        dismissBtn.gravity = Gravity.CENTER
-        dismissBtn.setBackgroundResource(R.drawable.close_button_bg)
-        dismissBtn.setOnClickListener {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            NotificationListener.dismiss(entry.key, nm)
-            updateNotificationIcons()
-        }
-        card.addView(dismissBtn)
-
-        card.setOnClickListener {
-            val intent = entry.contentIntent
-            if (intent != null) {
-                try {
-                    intent.send()
-                } catch (e: Exception) {
-                    try {
-                        startActivity(packageManager.getLaunchIntentForPackage(entry.packageName))
-                    } catch (e2: Exception) {}
-                }
-            }
-        }
-
-        return card
-    }
-
     // ============ TODAY SECTION ============
+
+    private fun initClock() {
+        clockTime = findViewById<TextView>(R.id.clockTime)!!
+        clockMeta = findViewById<TextView>(R.id.clockMeta)!!
+        refreshClock()
+    }
+
+    private fun refreshClock() {
+        val now = Date()
+        clockTime.text = SimpleDateFormat("h:mm", Locale.getDefault()).format(now)
+        clockMeta.text = SimpleDateFormat("a  EEE, MMM d", Locale.getDefault()).format(now)
+    }
+
+    private fun initWeather() {
+        weatherSummary = findViewById<TextView>(R.id.weatherSummary)!!
+        refreshWeather()
+    }
+
+    private fun refreshWeather() {
+        weatherSummary.text = getString(R.string.weather_unavailable)
+    }
 
     private fun initToday() {
         todayDate = findViewById<TextView>(R.id.todayDate)!!

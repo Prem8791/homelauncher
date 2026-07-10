@@ -12,10 +12,8 @@
     <color name="section_boundary">#18FFFFFF</color>
     <color name="stats_bar_bg">#00000000</color>
     <color name="dock_bg">#33000000</color>
-    <color name="notification_badge">#FFE94560</color>
     <color name="alphabet_letter">#FFFFFFFF</color>
     <color name="alphabet_letter_selected">#FFE94560</color>
     <color name="alphabet_letter_disabled">#40FFFFFF</color>
     <color name="kill_all_bg">#FFE94560</color>
-    <color name="notification_expanded_bg">#CC1A2A4E</color>
 </resources>

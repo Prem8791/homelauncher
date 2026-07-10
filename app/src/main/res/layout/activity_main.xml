@@ -8,55 +8,22 @@
     android:orientation="vertical"
     android:weightSum="100">
 
-    <!-- TOP 20%: Notifications + Today -->
+    <!-- TOP 20%: Calendar + Clock + Weather -->
     <LinearLayout
-        android:id="@+id/notificationsTodayRow"
+        android:id="@+id/glanceRow"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="20"
         android:background="@color/center_bg"
         android:orientation="horizontal"
-        android:padding="4dp"
-        android:weightSum="10">
-
-        <FrameLayout
-            android:id="@+id/notificationsContainer"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="6"
-            android:padding="2dp">
-
-            <HorizontalScrollView
-                android:id="@+id/notificationScroll"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scrollbars="none">
-
-                <LinearLayout
-                    android:id="@+id/notificationIcons"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal" />
-            </HorizontalScrollView>
-
-            <TextView
-                android:id="@+id/notificationPlaceholder"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="@string/no_notifications"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-        </FrameLayout>
-
-        <View style="@style/VerticalBoundary" />
+        android:padding="6dp"
+        android:weightSum="12">
 
         <LinearLayout
             android:id="@+id/todayContainer"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="4"
+            android:layout_weight="6"
             android:gravity="center_vertical"
             android:orientation="vertical"
             android:padding="4dp">
@@ -71,7 +38,7 @@
 
             <TextView
                 android:id="@+id/todayEvent"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="2"
@@ -80,8 +47,66 @@
 
             <TextView
                 android:id="@+id/todayTasks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <View style="@style/VerticalBoundary" />
+
+        <LinearLayout
+            android:id="@+id/clockContainer"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/clockTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/clockMeta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <View style="@style/VerticalBoundary" />
+
+        <LinearLayout
+            android:id="@+id/weatherContainer"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <TextView
+                android:id="@+id/weatherTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/weather_title"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/weatherSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
                 android:textColor="@color/text_secondary"
                 android:textSize="10sp" />
         </LinearLayout>
