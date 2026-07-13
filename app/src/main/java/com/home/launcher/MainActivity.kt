@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,7 +22,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -42,27 +42,19 @@ import com.home.launcher.task.TaskListenerRegistration
 import com.home.launcher.ui.AppListOverlay
 import com.home.launcher.ui.SystemStatsBar
 import java.text.SimpleDateFormat
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
     private companion object {
         const val REQUEST_PICK_WALLPAPER_IMAGE = 1001
         const val PREFS_DOCK = "dock"
-        const val PREFS_WEATHER = "weather"
         const val KEY_DOCK_HEIGHT_PERCENT = "dock_height_percent"
-        const val KEY_WEATHER_LOCATION = "location"
-        const val KEY_WEATHER_LATITUDE = "latitude"
-        const val KEY_WEATHER_LONGITUDE = "longitude"
-        const val KEY_WEATHER_TEMPERATURE = "temperature"
-        const val KEY_WEATHER_CODE = "weather_code"
-        const val KEY_WEATHER_UPDATED_AT = "updated_at"
-        const val WEATHER_MAX_AGE_MS = 30 * 60 * 1000L
+        const val OMNIJAWS_PACKAGE = "org.omnirom.omnijaws"
+        const val OMNIJAWS_SETTINGS_ACTIVITY = "org.omnirom.omnijaws.SettingsActivity"
+        val OMNIJAWS_WEATHER_URI: Uri =
+            Uri.parse("content://org.omnirom.omnijaws.provider/weather")
         const val DEFAULT_DOCK_HEIGHT_PERCENT = 10
         const val STATUS_HEIGHT_PERCENT = 10
         const val DOCK_SLOT_COUNT = 5
@@ -85,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var clockTime: TextView
     private lateinit var clockMeta: TextView
     private lateinit var weatherSummary: TextView
-    private var weatherRequestInFlight = false
+    private var weatherObserver: ContentObserver? = null
     private var todayEventId: Long? = null
     private var todayTaskEventId: Long? = null
     private lateinit var morphingEngine: MorphingEngine
@@ -207,6 +199,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        weatherObserver?.let { contentResolver.unregisterContentObserver(it) }
+        weatherObserver = null
         super.onDestroy()
         unregisterTaskListener()
     }
@@ -838,204 +832,50 @@ class MainActivity : AppCompatActivity() {
     private fun initWeather() {
         weatherSummary = findViewById<TextView>(R.id.weatherSummary)!!
         findViewById<View>(R.id.weatherContainer)!!.setOnClickListener { showWeatherSettings() }
+        weatherObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                refreshWeather()
+            }
+        }.also {
+            contentResolver.registerContentObserver(OMNIJAWS_WEATHER_URI, true, it)
+        }
         refreshWeather()
     }
 
     private fun refreshWeather() {
-        val preferences = getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-        val location = preferences.getString(KEY_WEATHER_LOCATION, null)
-        val temperature = preferences.getString(KEY_WEATHER_TEMPERATURE, null)
-        val weatherCode = preferences.getInt(KEY_WEATHER_CODE, -1)
-
-        if (location == null) {
-            weatherSummary.text = getString(R.string.weather_unavailable)
-            return
+        try {
+            contentResolver.query(
+                OMNIJAWS_WEATHER_URI,
+                arrayOf("city", "condition", "temperature"),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val city = cursor.getString(cursor.getColumnIndexOrThrow("city"))
+                    val condition = cursor.getString(cursor.getColumnIndexOrThrow("condition"))
+                    val temperature = cursor.getString(cursor.getColumnIndexOrThrow("temperature"))
+                    weatherSummary.text = formatWeather(city, temperature, condition)
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("HomeLauncher", "Unable to read OmniJaws weather", e)
         }
-
-        if (temperature != null && weatherCode >= 0) {
-            weatherSummary.text = formatWeather(location, temperature, weatherCode)
-        } else {
-            weatherSummary.text = getString(R.string.weather_loading)
-        }
-
-        val updatedAt = preferences.getLong(KEY_WEATHER_UPDATED_AT, 0L)
-        if (System.currentTimeMillis() - updatedAt >= WEATHER_MAX_AGE_MS) {
-            fetchWeatherForSavedLocation()
-        }
+        weatherSummary.text = getString(R.string.weather_unavailable)
     }
 
     private fun showWeatherSettings() {
-        val input = EditText(this)
-        input.hint = "City or postal code"
-        input.setSingleLine(true)
-        input.setText(
-            getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-                .getString(KEY_WEATHER_LOCATION, "")
-        )
-        input.setSelection(input.text.length)
-
-        val horizontalPadding = dp(24)
-        val container = FrameLayout(this)
-        container.setPadding(horizontalPadding, 0, horizontalPadding, 0)
-        container.addView(
-            input,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
-            .setTitle("Weather Settings")
-            .setMessage("Weather data is provided by Open-Meteo. Enter a city or postal code.")
-            .setView(container)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ -> configureWeather(input.text.toString()) }
-            .show()
-    }
-
-    private fun configureWeather(query: String) {
-        val trimmedQuery = query.trim()
-        if (trimmedQuery.length < 2) {
-            Toast.makeText(this, "Enter a valid location", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (weatherRequestInFlight) return
-
-        weatherRequestInFlight = true
-        weatherSummary.text = getString(R.string.weather_loading)
-        Thread {
-            try {
-                val encodedQuery = URLEncoder.encode(trimmedQuery, "UTF-8")
-                val geocoding = requestJson(
-                    "https://geocoding-api.open-meteo.com/v1/search" +
-                        "?name=$encodedQuery&count=1&language=en&format=json"
-                )
-                val results = geocoding.optJSONArray("results")
-                if (results == null || results.length() == 0) {
-                    throw IllegalArgumentException("Location not found")
-                }
-
-                val result = results.getJSONObject(0)
-                val name = result.getString("name")
-                val admin = result.optString("admin1")
-                val country = result.optString("country")
-                val displayLocation = listOf(name, admin, country)
-                    .filter { it.isNotBlank() }
-                    .distinct()
-                    .joinToString(", ")
-
-                getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-                    .edit()
-                    .putString(KEY_WEATHER_LOCATION, displayLocation)
-                    .putString(KEY_WEATHER_LATITUDE, result.getDouble("latitude").toString())
-                    .putString(KEY_WEATHER_LONGITUDE, result.getDouble("longitude").toString())
-                    .remove(KEY_WEATHER_TEMPERATURE)
-                    .remove(KEY_WEATHER_CODE)
-                    .remove(KEY_WEATHER_UPDATED_AT)
-                    .apply()
-                fetchWeatherFromNetwork()
-            } catch (e: Exception) {
-                Log.e("HomeLauncher", "Weather location lookup failed", e)
-                showWeatherError(e.message ?: "Weather lookup failed")
-            }
-        }.start()
-    }
-
-    private fun fetchWeatherForSavedLocation() {
-        if (weatherRequestInFlight) return
-        val preferences = getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-        if (preferences.getString(KEY_WEATHER_LATITUDE, null) == null ||
-            preferences.getString(KEY_WEATHER_LONGITUDE, null) == null
-        ) {
-            return
-        }
-
-        weatherRequestInFlight = true
-        Thread {
-            try {
-                fetchWeatherFromNetwork()
-            } catch (e: Exception) {
-                Log.e("HomeLauncher", "Weather refresh failed", e)
-                showWeatherError("Unable to update weather")
-            }
-        }.start()
-    }
-
-    private fun fetchWeatherFromNetwork() {
-        val preferences = getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-        val latitude = preferences.getString(KEY_WEATHER_LATITUDE, null)
-            ?: throw IllegalStateException("Weather latitude is missing")
-        val longitude = preferences.getString(KEY_WEATHER_LONGITUDE, null)
-            ?: throw IllegalStateException("Weather longitude is missing")
-        val response = requestJson(
-            "https://api.open-meteo.com/v1/forecast" +
-                "?latitude=$latitude&longitude=$longitude" +
-                "&current=temperature_2m,weather_code&timezone=auto"
-        )
-        val current = response.getJSONObject("current")
-        val temperature = current.getDouble("temperature_2m").roundToInt().toString()
-        val weatherCode = current.getInt("weather_code")
-        preferences.edit()
-            .putString(KEY_WEATHER_TEMPERATURE, temperature)
-            .putInt(KEY_WEATHER_CODE, weatherCode)
-            .putLong(KEY_WEATHER_UPDATED_AT, System.currentTimeMillis())
-            .apply()
-
-        runOnUiThread {
-            weatherRequestInFlight = false
-            refreshWeather()
-        }
-    }
-
-    private fun requestJson(url: String): JSONObject {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 8000
-        connection.readTimeout = 8000
-        connection.setRequestProperty("Accept", "application/json")
         try {
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("Weather service returned ${connection.responseCode}")
-            }
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            return JSONObject(body)
-        } finally {
-            connection.disconnect()
+            startActivity(Intent().setClassName(OMNIJAWS_PACKAGE, OMNIJAWS_SETTINGS_ACTIVITY))
+        } catch (e: Exception) {
+            Log.w("HomeLauncher", "Unable to open OmniJaws settings", e)
+            Toast.makeText(this, getString(R.string.weather_unavailable), Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun showWeatherError(message: String) {
-        runOnUiThread {
-            weatherRequestInFlight = false
-            val preferences = getSharedPreferences(PREFS_WEATHER, Context.MODE_PRIVATE)
-            val location = preferences.getString(KEY_WEATHER_LOCATION, null)
-            val temperature = preferences.getString(KEY_WEATHER_TEMPERATURE, null)
-            val weatherCode = preferences.getInt(KEY_WEATHER_CODE, -1)
-            weatherSummary.text = if (location != null && temperature != null && weatherCode >= 0) {
-                formatWeather(location, temperature, weatherCode)
-            } else {
-                getString(R.string.weather_update_failed)
-            }
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun formatWeather(location: String, temperature: String, weatherCode: Int): String {
-        return "$temperature C  ${weatherCondition(weatherCode)}\n$location\nOpen-Meteo"
-    }
-
-    private fun weatherCondition(code: Int): String = when (code) {
-        0 -> "Clear"
-        1, 2 -> "Partly cloudy"
-        3 -> "Overcast"
-        45, 48 -> "Fog"
-        51, 53, 55, 56, 57 -> "Drizzle"
-        61, 63, 65, 66, 67 -> "Rain"
-        71, 73, 75, 77 -> "Snow"
-        80, 81, 82 -> "Rain showers"
-        85, 86 -> "Snow showers"
-        95, 96, 99 -> "Thunderstorm"
-        else -> "Current conditions"
+    private fun formatWeather(location: String, temperature: String, condition: String): String {
+        return "$temperature°  $condition\n$location\nOmniJaws"
     }
 
     private fun initToday() {
