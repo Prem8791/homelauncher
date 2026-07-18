@@ -21,8 +21,7 @@
             android:layout_weight="8"
             android:background="@color/column_bg"
             android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
+            android:orientation="vertical">
 
             <TextView android:id="@+id/letter_A" style="@style/AlphabetLetter" android:text="A" />
             <View style="@style/AlphabetSeparator" />
@@ -82,8 +81,7 @@
             android:layout_weight="8"
             android:background="@color/column_bg"
             android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
+            android:orientation="vertical">
 
             <TextView android:id="@+id/letter_N" style="@style/AlphabetLetter" android:text="N" />
             <View style="@style/AlphabetSeparator" />

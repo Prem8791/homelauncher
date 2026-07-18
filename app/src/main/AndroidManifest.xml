@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.home.launcher">
+    package="com.home.launcher"
+    android:versionCode="38"
+    android:versionName="2.0.0">
 
     <!-- ============ RECENT APPS (signature|system) ============ -->
     <uses-permission android:name="android.permission.REAL_GET_TASKS" />
