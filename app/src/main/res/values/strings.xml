@@ -7,6 +7,7 @@
     <string name="favourites">Favourites</string>
     <string name="numbers">#</string>
     <string name="star">*</string>
+    <string name="all_apps_title">All Apps</string>
     <string name="weather_title">Weather</string>
     <string name="weather_unavailable">Not configured</string>
     <string name="weather_loading">Updating weather...</string>

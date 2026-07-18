@@ -28,20 +28,8 @@ class RecentTasksRepository(
         private const val TAG = "RecentTasksRepo"
 
         fun createBestBackend(context: Context): RecentTasksBackend {
-            Log.w(TAG, "Platform recents backend is unavailable outside the AOSP source set")
-            return UnavailableRecentTasksBackend
+            Log.i(TAG, "Using reflection-based recents backend")
+            return ReflectionRecentTasksBackend(context)
         }
     }
-}
-
-private object UnavailableRecentTasksBackend : RecentTasksBackend {
-    override fun getRecentTasks(maxNum: Int): List<RecentTask> = emptyList()
-    override fun removeTask(taskId: Int): Boolean = false
-    override fun removeAllVisibleRecentTasks(): Boolean = false
-    override fun startTaskFromRecents(taskId: Int): Boolean = false
-    override fun getTaskSnapshot(taskId: Int, isLowResolution: Boolean): Bitmap? = null
-    override fun forceStopPackage(packageName: String): Boolean = false
-    override fun registerTaskChangeListener(
-        onChanged: (snapshotTaskId: Int?) -> Unit
-    ): TaskListenerRegistration? = null
 }

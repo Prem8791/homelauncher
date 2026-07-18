@@ -1,0 +1,123 @@
+// This is auto-generated. DO NOT EDIT.
+
+package {
+    // A default list here prevents the license LSC from adding its own list which would
+    // be unnecessary as every module in the sdk already has its own licenses property.
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+apex_contributions_defaults {
+    name: "crashrecovery-sdk.contributions",
+    contents: [
+        "prebuilt_framework-crashrecovery",
+        "prebuilt_service-crashrecovery",
+    ],
+}
+
+prebuilt_bootclasspath_fragment {
+    name: "com.android.crashrecovery-bootclasspath-fragment",
+    visibility: ["//visibility:public"],
+    apex_available: ["com.android.crashrecovery"],
+    licenses: ["crashrecovery-sdk_Android-Apache-2.0"],
+    contents: ["framework-crashrecovery"],
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
+        },
+    ],
+    hidden_api: {
+        annotation_flags: "hiddenapi/annotation-flags.csv",
+        metadata: "hiddenapi/metadata.csv",
+        index: "hiddenapi/index.csv",
+        signature_patterns: "hiddenapi/signature-patterns.csv",
+        filtered_stub_flags: "hiddenapi/filtered-stub-flags.csv",
+        filtered_flags: "hiddenapi/filtered-flags.csv",
+    },
+}
+
+java_sdk_library_import {
+    name: "framework-crashrecovery",
+    visibility: ["//visibility:public"],
+    apex_available: ["com.android.crashrecovery"],
+    licenses: ["crashrecovery-sdk_Android-Apache-2.0"],
+    shared_library: false,
+    permitted_packages: [
+        "android.service.watchdog",
+        "android.crashrecovery",
+    ],
+    public: {
+        jars: ["sdk_library/public/framework-crashrecovery-stubs.jar"],
+        stub_srcs: ["sdk_library/public/framework-crashrecovery.srcjar"],
+        current_api: "sdk_library/public/framework-crashrecovery.txt",
+        removed_api: "sdk_library/public/framework-crashrecovery-removed.txt",
+        annotations: "sdk_library/public/framework-crashrecovery_annotations.zip",
+        sdk_version: "module_current",
+    },
+    system: {
+        jars: ["sdk_library/system/framework-crashrecovery-stubs.jar"],
+        stub_srcs: ["sdk_library/system/framework-crashrecovery.srcjar"],
+        current_api: "sdk_library/system/framework-crashrecovery.txt",
+        removed_api: "sdk_library/system/framework-crashrecovery-removed.txt",
+        annotations: "sdk_library/system/framework-crashrecovery_annotations.zip",
+        sdk_version: "module_current",
+    },
+    module_lib: {
+        jars: ["sdk_library/module-lib/framework-crashrecovery-stubs.jar"],
+        stub_srcs: ["sdk_library/module-lib/framework-crashrecovery.srcjar"],
+        current_api: "sdk_library/module-lib/framework-crashrecovery.txt",
+        removed_api: "sdk_library/module-lib/framework-crashrecovery-removed.txt",
+        annotations: "sdk_library/module-lib/framework-crashrecovery_annotations.zip",
+        sdk_version: "module_current",
+    },
+}
+
+java_sdk_library_import {
+    name: "service-crashrecovery",
+    visibility: ["//visibility:public"],
+    apex_available: ["com.android.crashrecovery"],
+    licenses: ["crashrecovery-sdk_Android-Apache-2.0"],
+    shared_library: false,
+    permitted_packages: [
+        "android.crashrecovery",
+        "com.android.crashrecovery",
+        "com.android.server",
+    ],
+    public: {
+        jars: ["sdk_library/public/service-crashrecovery-stubs.jar"],
+        stub_srcs: ["sdk_library/public/service-crashrecovery.srcjar"],
+        current_api: "sdk_library/public/service-crashrecovery.txt",
+        removed_api: "sdk_library/public/service-crashrecovery-removed.txt",
+        annotations: "sdk_library/public/service-crashrecovery_annotations.zip",
+        sdk_version: "module_current",
+    },
+    system_server: {
+        jars: ["sdk_library/system-server/service-crashrecovery-stubs.jar"],
+        stub_srcs: ["sdk_library/system-server/service-crashrecovery.srcjar"],
+        current_api: "sdk_library/system-server/service-crashrecovery.txt",
+        removed_api: "sdk_library/system-server/service-crashrecovery-removed.txt",
+        annotations: "sdk_library/system-server/service-crashrecovery_annotations.zip",
+        sdk_version: "system_server_current",
+    },
+}
+
+license {
+    name: "crashrecovery-sdk_Android-Apache-2.0",
+    visibility: ["//visibility:private"],
+    license_kinds: ["SPDX-license-identifier-Apache-2.0"],
+    license_text: ["licenses/build/soong/licenses/LICENSE"],
+}
+
+license {
+    name: "crashrecovery-sdk_opensourcerequest",
+    visibility: ["//visibility:private"],
+    license_text: ["licenses/build/soong/licenses/opensourcerequest"],
+}
+
+prebuilt_systemserverclasspath_fragment {
+    name: "com.android.crashrecovery-systemserverclasspath-fragment",
+    visibility: ["//visibility:public"],
+    apex_available: ["com.android.crashrecovery"],
+    licenses: ["crashrecovery-sdk_Android-Apache-2.0"],
+    contents: ["service-crashrecovery"],
+}

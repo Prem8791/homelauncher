@@ -113,338 +113,41 @@
     </LinearLayout>
 
     <!-- Section Boundary -->
-    <View style="@style/SectionBoundary" />
+    <View android:id="@+id/glanceBoundary" style="@style/SectionBoundary" />
 
-    <!-- BOTTOM 80%: Three columns -->
+    <!-- BOTTOM 80%: ViewPager for Home + All Apps pages -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="80"
-        android:orientation="horizontal"
-        android:weightSum="100">
+        android:orientation="vertical">
 
-        <!-- LEFT COLUMN: A–M + # -->
+        <androidx.viewpager.widget.ViewPager
+            android:id="@+id/mainPager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@color/background" />
+
+        <!-- Page Indicator -->
         <LinearLayout
-            android:id="@+id/leftColumn"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="8"
-            android:background="@color/column_bg"
+            android:id="@+id/pageIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
+            android:orientation="horizontal"
+            android:paddingVertical="3dp">
 
-            <TextView
-                android:id="@+id/letter_A"
-                style="@style/AlphabetLetter"
-                android:text="A" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_B"
-                style="@style/AlphabetLetter"
-                android:text="B" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_C"
-                style="@style/AlphabetLetter"
-                android:text="C" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_D"
-                style="@style/AlphabetLetter"
-                android:text="D" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_E"
-                style="@style/AlphabetLetter"
-                android:text="E" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_F"
-                style="@style/AlphabetLetter"
-                android:text="F" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_G"
-                style="@style/AlphabetLetter"
-                android:text="G" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_H"
-                style="@style/AlphabetLetter"
-                android:text="H" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_I"
-                style="@style/AlphabetLetter"
-                android:text="I" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_J"
-                style="@style/AlphabetLetter"
-                android:text="J" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_K"
-                style="@style/AlphabetLetter"
-                android:text="K" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_L"
-                style="@style/AlphabetLetter"
-                android:text="L" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_M"
-                style="@style/AlphabetLetter"
-                android:text="M" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_HASH"
-                style="@style/AlphabetLetter"
-                android:text="#" />
-        </LinearLayout>
-
-        <!-- Vertical Boundary -->
-        <View style="@style/VerticalBoundary" />
-
-        <!-- CENTER COLUMN: Recent Apps + Status -->
-        <LinearLayout
-            android:id="@+id/centerColumn"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="84"
-            android:orientation="vertical"
-            android:weightSum="100">
-
-            <!-- Recent Area -->
-            <RelativeLayout
-                android:id="@+id/recentAppsRow"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="80"
-                android:background="@color/background">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/recentAppsGrid"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:clipToPadding="false"
-                    android:padding="4dp" />
-            </RelativeLayout>
-
-            <!-- Section Boundary -->
-            <View style="@style/SectionBoundary" />
-
-            <!-- Status Area - three columns: left (kill all), center (stats), right (settings) -->
-            <LinearLayout
-                android:id="@+id/statusArea"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="10"
-                android:background="@color/stats_bar_bg"
-                android:orientation="horizontal"
-                android:weightSum="100">
-
-                <!-- Left 15%: Kill All -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="15"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/killAllButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="28dp"
-                        android:background="@drawable/kill_all_bg"
-                        android:gravity="center"
-                        android:paddingHorizontal="10dp"
-                        android:text="@string/kill_all"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_primary"
-                        android:textSize="7sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <!-- Center 70%: System Stats (2 rows) -->
-                <LinearLayout
-                    android:id="@+id/statusStatsCenter"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="70"
-                    android:clickable="false"
-                    android:focusable="false"
-                    android:importantForAccessibility="no"
-                    android:orientation="vertical"
-                    android:weightSum="10">
-
-                    <!-- Stats Row 1: Battery, RAM, CPU -->
-                    <LinearLayout
-                        android:id="@+id/statusStatsRow1"
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="5"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingHorizontal="4dp">
-
-                        <TextView
-                            android:id="@+id/statBattery"
-                            style="@style/StatText"
-                            android:text="🔋 --%" />
-                        <TextView
-                            android:id="@+id/statRam"
-                            style="@style/StatText"
-                            android:text="🧠 --/--" />
-                        <TextView
-                            android:id="@+id/statCpu"
-                            style="@style/StatText"
-                            android:text="⚙️ --%" />
-                    </LinearLayout>
-
-                    <!-- Stats Row 2: Temp, Storage -->
-                    <LinearLayout
-                        android:id="@+id/statusStatsRow2"
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="5"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingHorizontal="4dp">
-
-                        <TextView
-                            android:id="@+id/statTemp"
-                            style="@style/StatText"
-                            android:text="🌡 --°C" />
-                        <TextView
-                            android:id="@+id/statStorage"
-                            style="@style/StatText"
-                            android:text="💾 --%" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <!-- Right 15%: Settings -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="15"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/settingsButton"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:background="@drawable/kill_all_bg"
-                        android:gravity="center"
-                        android:text="⚙"
-                        android:textColor="@color/text_primary"
-                        android:textSize="16sp" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Section Boundary -->
-            <View style="@style/SectionBoundary" />
-
-            <!-- Dock Area -->
-            <LinearLayout
-                android:id="@+id/dockContainer"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="10"
-                android:background="@color/dock_bg"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="4dp"
-                android:weightSum="5" />
-        </LinearLayout>
-
-        <!-- Vertical Boundary -->
-        <View style="@style/VerticalBoundary" />
-
-        <!-- RIGHT COLUMN: N–Z + * -->
-        <LinearLayout
-            android:id="@+id/rightColumn"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="8"
-            android:background="@color/column_bg"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingVertical="4dp">
-
-            <TextView
-                android:id="@+id/letter_N"
-                style="@style/AlphabetLetter"
-                android:text="N" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_O"
-                style="@style/AlphabetLetter"
-                android:text="O" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_P"
-                style="@style/AlphabetLetter"
-                android:text="P" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_Q"
-                style="@style/AlphabetLetter"
-                android:text="Q" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_R"
-                style="@style/AlphabetLetter"
-                android:text="R" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_S"
-                style="@style/AlphabetLetter"
-                android:text="S" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_T"
-                style="@style/AlphabetLetter"
-                android:text="T" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_U"
-                style="@style/AlphabetLetter"
-                android:text="U" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_V"
-                style="@style/AlphabetLetter"
-                android:text="V" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_W"
-                style="@style/AlphabetLetter"
-                android:text="W" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_X"
-                style="@style/AlphabetLetter"
-                android:text="X" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_Y"
-                style="@style/AlphabetLetter"
-                android:text="Y" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_Z"
-                style="@style/AlphabetLetter"
-                android:text="Z" />
-            <View style="@style/AlphabetSeparator" />
-            <TextView
-                android:id="@+id/letter_STAR"
-                style="@style/AlphabetLetter"
-                android:text="*" />
+            <View
+                android:id="@+id/pageDot0"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:layout_margin="4dp" />
+            <View
+                android:id="@+id/pageDot1"
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:layout_margin="4dp" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

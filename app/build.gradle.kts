@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "com.home.launcher"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.home.launcher"
-        minSdk = 34
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        minSdk = 36
+        targetSdk = 36
+        versionCode = 37
+        versionName = "2.0.0"
     }
 
     buildTypes {
@@ -52,4 +52,5 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.viewpager:viewpager:1.0.0")
 }

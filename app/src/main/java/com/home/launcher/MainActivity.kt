@@ -1,25 +1,25 @@
 package com.home.launcher
 
-import android.app.ActivityManager
 import android.Manifest
-import android.content.ContentUris
 import android.app.WallpaperManager
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
 import android.database.ContentObserver
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.provider.CalendarContract
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -31,16 +31,18 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager.widget.PagerAdapter
+import androidx.viewpager.widget.ViewPager
 import com.home.launcher.animation.MorphConfig
 import com.home.launcher.animation.MorphingEngine
 import com.home.launcher.adapter.RecentAppsAdapter
 import com.home.launcher.adapter.RecentTaskTile
-import kotlin.math.roundToInt
 import com.home.launcher.data.AppIndex
 import com.home.launcher.task.RecentTasksRepository
 import com.home.launcher.task.TaskListenerRegistration
-import com.home.launcher.ui.AppListOverlay
+import com.home.launcher.ui.AllAppsAdapter
 import com.home.launcher.ui.SystemStatsBar
+import kotlin.math.roundToInt
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -60,17 +62,30 @@ class MainActivity : AppCompatActivity() {
         const val DOCK_SLOT_COUNT = 5
     }
 
-    // Layout references
-    private lateinit var leftColumn: LinearLayout
-    private lateinit var centerColumn: LinearLayout
-    private lateinit var rightColumn: LinearLayout
+    // Root layout references
     private lateinit var rootLayout: LinearLayout
+    private lateinit var mainPager: ViewPager
+    private lateinit var pageDot0: View
+    private lateinit var pageDot1: View
+
+    // Home page views
+    private lateinit var homePage: View
     private lateinit var recentAppsRow: View
     private lateinit var recentAppsGrid: RecyclerView
     private lateinit var recentAppsAdapter: RecentAppsAdapter
     private lateinit var killAllButton: TextView
     private lateinit var statusArea: LinearLayout
     private lateinit var dockContainer: LinearLayout
+
+    // All-apps page views
+    private lateinit var allAppsPage: View
+    private lateinit var leftColumn: LinearLayout
+    private lateinit var rightColumn: LinearLayout
+    private lateinit var allAppsGrid: RecyclerView
+    private lateinit var allAppsAdapter: AllAppsAdapter
+    private var selectedLetter: Char? = null
+
+    // Glance row views
     private lateinit var todayDate: TextView
     private lateinit var todayEvent: TextView
     private lateinit var todayTasks: TextView
@@ -121,10 +136,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ====================================================================
+    // ACTIVITY LIFECYCLE
+    // ====================================================================
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // === Startup diagnostics ===
         Log.i("HomeLauncher", "aospBuild=HomeLauncher system image build")
         Log.i("HomeLauncher", "package=$packageName uid=${android.os.Process.myUid()}")
         Log.i("HomeLauncher", "sdk=${Build.VERSION.SDK_INT} release=${Build.VERSION.RELEASE}")
@@ -144,18 +162,10 @@ class MainActivity : AppCompatActivity() {
         initMorphingEngine()
 
         initViews()
-        initAlphabetColumns()
-        initRecentApps()
-        initKillAll()
-        initSettings()
-        initToday()
-        initClock()
-        initWeather()
-        initStatsBar()
+        initPager()
 
         appIndex.load()
         launcherApps = getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        initDock()
         updateAlphabetAvailability()
         registerTaskListener()
     }
@@ -174,8 +184,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        leftColumn.visibility = View.VISIBLE
-        rightColumn.visibility = View.VISIBLE
+        if (::mainPager.isInitialized && mainPager.currentItem != 0) {
+            mainPager.setCurrentItem(0, false)
+        }
         pollingActive = true
         refreshRecentTasks()
         refreshPendingSnapshots()
@@ -214,7 +225,9 @@ class MainActivity : AppCompatActivity() {
         super.onBackPressed()
     }
 
-    // ============ VIEW INITIALIZATION ============
+    // ====================================================================
+    // VIEW INITIALIZATION
+    // ====================================================================
 
     private fun initMorphingEngine() {
         morphingEngine = MorphingEngine(this)
@@ -228,78 +241,228 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
-        rootLayout = findViewById<LinearLayout>(R.id.rootLayout)!!
-        leftColumn = findViewById<LinearLayout>(R.id.leftColumn)!!
-        centerColumn = findViewById<LinearLayout>(R.id.centerColumn)!!
-        rightColumn = findViewById<LinearLayout>(R.id.rightColumn)!!
-        recentAppsRow = findViewById<View>(R.id.recentAppsRow)!!
-        statusArea = findViewById<LinearLayout>(R.id.statusArea)!!
-        dockContainer = findViewById<LinearLayout>(R.id.dockContainer)!!
+        rootLayout = findViewById(R.id.rootLayout)
+        mainPager = findViewById(R.id.mainPager)
+        pageDot0 = findViewById(R.id.pageDot0)
+        pageDot1 = findViewById(R.id.pageDot1)
+
+        // Glance row
+        todayDate = findViewById(R.id.todayDate)
+        todayEvent = findViewById(R.id.todayEvent)
+        todayTasks = findViewById(R.id.todayTasks)
+        clockTime = findViewById(R.id.clockTime)
+        clockMeta = findViewById(R.id.clockMeta)
+        weatherSummary = findViewById(R.id.weatherSummary)
+
+        // Page indicator dots
+        makeDot(pageDot0, R.color.text_primary)
+        makeDot(pageDot1, R.color.text_secondary)
+
+        // Inflate page layouts (not attached to ViewPager yet)
+        homePage = layoutInflater.inflate(R.layout.page_home, null)
+        allAppsPage = layoutInflater.inflate(R.layout.page_all_apps, null)
+
+        // Initialize home page views
+        recentAppsGrid = homePage.findViewById(R.id.recentAppsGrid)
+        killAllButton = homePage.findViewById(R.id.killAllButton)
+        statusArea = homePage.findViewById(R.id.statusArea)
+        dockContainer = homePage.findViewById(R.id.dockContainer)
+        recentAppsRow = homePage.findViewById(R.id.recentAppsRow)
+
+        initRecentApps()
+        initKillAll()
+        initHomeSettings()
+        initHomeStatsBar()
+        initDock()
+
+        // Initialize all-apps page views
+        leftColumn = allAppsPage.findViewById(R.id.leftColumn)
+        rightColumn = allAppsPage.findViewById(R.id.rightColumn)
+        allAppsGrid = allAppsPage.findViewById(R.id.allAppsGrid)
+        initAlphabetColumns()
+        initAllAppsGrid()
+
+        // Initialize glance row sections
+        initToday()
+        initClock()
+        initWeather()
     }
 
-    // ============ ALPHABET COLUMNS ============
+    // ====================================================================
+    // PAGE INDICATOR
+    // ====================================================================
+
+    private fun makeDot(dot: View, colorRes: Int) {
+        val gd = GradientDrawable()
+        gd.shape = GradientDrawable.OVAL
+        gd.setColor(resources.getColor(colorRes, theme))
+        dot.background = gd
+    }
+
+    private fun updatePageIndicator(position: Int) {
+        makeDot(pageDot0, if (position == 0) R.color.text_primary else R.color.text_secondary)
+        makeDot(pageDot1, if (position == 1) R.color.text_primary else R.color.text_secondary)
+    }
+
+    // ====================================================================
+    // VIEWPAGER
+    // ====================================================================
+
+    private fun initPager() {
+        mainPager.adapter = object : PagerAdapter() {
+            override fun getCount() = 2
+
+            override fun isViewFromObject(view: View, `object`: Any): Boolean = view === `object`
+
+            override fun instantiateItem(container: ViewGroup, position: Int): Any {
+                val page = when (position) {
+                    0 -> homePage
+                    1 -> allAppsPage
+                    else -> throw IllegalStateException()
+                }
+                if (page.parent == null) {
+                    container.addView(
+                        page,
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+                return page
+            }
+
+            override fun destroyItem(container: ViewGroup, position: Int, `object`: Any) {
+                container.removeView(`object` as View)
+            }
+        }
+
+        mainPager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
+            override fun onPageSelected(position: Int) {
+                updatePageIndicator(position)
+                val glanceRow = findViewById<View>(R.id.glanceRow)
+                val boundary = findViewById<View>(R.id.glanceBoundary)
+                if (position == 1) {
+                    glanceRow.visibility = View.GONE
+                    boundary.visibility = View.GONE
+                } else {
+                    glanceRow.visibility = View.VISIBLE
+                    boundary.visibility = View.VISIBLE
+                }
+            }
+
+            override fun onPageScrolled(
+                position: Int,
+                positionOffset: Float,
+                positionOffsetPixels: Int
+            ) {
+            }
+
+            override fun onPageScrollStateChanged(state: Int) {}
+        })
+    }
+
+    // ====================================================================
+    // ALPHABET COLUMNS (All-Apps Page)
+    // ====================================================================
 
     private fun initAlphabetColumns() {
-        val leftLetters = listOf('A','B','C','D','E','F','G','H','I','J','K','L','M')
-        val rightLetters = listOf('N','O','P','Q','R','S','T','U','V','W','X','Y','Z')
+        val leftLetters = listOf('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M')
+        val rightLetters = listOf('N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z')
 
         for (letter in leftLetters) {
             val id = resources.getIdentifier("letter_$letter", "id", packageName)
-            findViewById<TextView>(id)?.setOnClickListener { onLetterTap(letter) }
+            allAppsPage.findViewById<TextView>(id)?.setOnClickListener { onLetterTap(letter) }
         }
-        findViewById<TextView>(R.id.letter_HASH)?.setOnClickListener { onLetterTap('#') }
+        allAppsPage.findViewById<TextView>(R.id.letter_HASH)?.setOnClickListener { onLetterTap('#') }
 
         for (letter in rightLetters) {
             val id = resources.getIdentifier("letter_$letter", "id", packageName)
-            findViewById<TextView>(id)?.setOnClickListener { onLetterTap(letter) }
+            allAppsPage.findViewById<TextView>(id)?.setOnClickListener { onLetterTap(letter) }
         }
-        findViewById<TextView>(R.id.letter_STAR)?.setOnClickListener { onLetterTap('*') }
+        allAppsPage.findViewById<TextView>(R.id.letter_STAR)?.setOnClickListener { onLetterTap('*') }
+        allAppsPage.findViewById<TextView>(R.id.letter_ALL)?.setOnClickListener { onShowAllTap() }
+    }
+
+    private fun onShowAllTap() {
+        selectedLetter = null
+        allAppsAdapter.setApps(appIndex.getAllApps())
+        updateAlphabetAvailability()
     }
 
     private fun updateAlphabetAvailability() {
+        if (!::allAppsPage.isInitialized) return
         val available = appIndex.getAvailableLetters()
-        val letterIds = ('A'..'Z').map { it to resources.getIdentifier("letter_$it", "id", packageName) } +
-            listOf('#' to R.id.letter_HASH, '*' to R.id.letter_STAR)
+        val letterIds = ('A'..'Z').map {
+            it to resources.getIdentifier("letter_$it", "id", packageName)
+        } + listOf('#' to R.id.letter_HASH, '*' to R.id.letter_STAR)
         for ((letter, id) in letterIds) {
-            val tv = findViewById<TextView>(id) ?: continue
-            if (letter in available) {
+            val tv = allAppsPage.findViewById<TextView>(id) ?: continue
+            if (letter == selectedLetter) {
+                tv.setTextColor(resources.getColor(R.color.alphabet_letter_selected, theme))
+            } else if (letter in available) {
                 tv.setTextColor(resources.getColor(R.color.alphabet_letter, theme))
             } else {
                 tv.setTextColor(resources.getColor(R.color.alphabet_letter_disabled, theme))
             }
         }
+        val showAllTv = allAppsPage.findViewById<TextView>(R.id.letter_ALL)
+        if (showAllTv != null) {
+            if (selectedLetter == null) {
+                showAllTv.setTextColor(resources.getColor(R.color.alphabet_letter_selected, theme))
+            } else {
+                showAllTv.setTextColor(resources.getColor(R.color.alphabet_letter, theme))
+            }
+        }
+    }
+
+    private fun onLetterTap(letter: Char) {
+        val apps = appIndex.getAppsForLetter(letter)
+        if (apps.isEmpty()) return
+
+        if (selectedLetter == letter) {
+            selectedLetter = null
+            allAppsAdapter.setApps(appIndex.getAllApps())
+        } else {
+            selectedLetter = letter
+            allAppsAdapter.filterByLetter(letter)
+        }
+        updateAlphabetAvailability()
     }
 
     private fun refreshAppIndex() {
         appIndex.load()
         updateAlphabetAvailability()
         refreshDock()
-    }
-
-    private fun onLetterTap(letter: Char) {
-        val apps = appIndex.getAppsForLetter(letter)
-        val title = when (letter) {
-            '#' -> getString(R.string.numbers)
-            '*' -> getString(R.string.favourites)
-            else -> "\"$letter\""
-        }
-        if (apps.isEmpty()) {
-            return
-        }
-        leftColumn.visibility = View.INVISIBLE
-        rightColumn.visibility = View.INVISIBLE
-        AppListOverlay.show(this, centerColumn, title, apps) {
-            leftColumn.visibility = View.VISIBLE
-            rightColumn.visibility = View.VISIBLE
+        if (::allAppsAdapter.isInitialized) {
+            selectedLetter = null
+            allAppsAdapter.setApps(appIndex.getAllApps())
         }
     }
 
-    // ============ RECENT APPS ============
+    // ====================================================================
+    // ALL-APPS GRID
+    // ====================================================================
+
+    private fun initAllAppsGrid() {
+        allAppsAdapter = AllAppsAdapter(
+            activity = this,
+            appIndex = appIndex
+        )
+        val glm = GridLayoutManager(this, 5, RecyclerView.VERTICAL, false)
+        allAppsGrid.layoutManager = glm
+        allAppsGrid.adapter = allAppsAdapter
+
+        if (appIndex.isLoaded()) {
+            allAppsAdapter.setApps(appIndex.getAllApps())
+        }
+    }
+
+    // ====================================================================
+    // RECENT APPS
+    // ====================================================================
 
     private fun initRecentApps() {
-        recentAppsGrid = findViewById<RecyclerView>(R.id.recentAppsGrid)!!
-        killAllButton = findViewById<TextView>(R.id.killAllButton)!!
-
         recentAppsAdapter = RecentAppsAdapter(
             context = this,
             onClose = { tile -> closeTask(tile) },
@@ -369,10 +532,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun initKillAll() {
         killAllButton.setOnClickListener {
-            val tiles = (0 until recentAppsAdapter.itemCount).map { recentAppsAdapter.getTileAt(it) }
-            if (tiles.isEmpty()) {
-                return@setOnClickListener
+            val tiles = (0 until recentAppsAdapter.itemCount).map {
+                recentAppsAdapter.getTileAt(it)
             }
+            if (tiles.isEmpty()) return@setOnClickListener
 
             for (tile in tiles) {
                 recentTasksRepository.forceStopPackage(tile.packageName)
@@ -383,10 +546,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ============ SETTINGS ============
+    // ====================================================================
+    // SETTINGS
+    // ====================================================================
 
-    private fun initSettings() {
-        findViewById<View>(R.id.settingsButton)!!.setOnClickListener { showSettingsDialog() }
+    private fun initHomeSettings() {
+        homePage.findViewById<View>(R.id.settingsButton)!!.setOnClickListener {
+            showSettingsDialog()
+        }
     }
 
     private fun showSettingsMorph(anchor: View) {
@@ -543,7 +710,10 @@ class MainActivity : AppCompatActivity() {
                     addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                 }
             }
-            startActivityForResult(Intent.createChooser(intent, "Choose wallpaper image"), REQUEST_PICK_WALLPAPER_IMAGE)
+            startActivityForResult(
+                Intent.createChooser(intent, "Choose wallpaper image"),
+                REQUEST_PICK_WALLPAPER_IMAGE
+            )
         } catch (e: Exception) {
             Toast.makeText(this, "No image picker available", Toast.LENGTH_SHORT).show()
         }
@@ -565,7 +735,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 contentResolver.takePersistableUriPermission(imageUri, flags)
             } catch (_: SecurityException) {
-                // ACTION_PICK providers often grant transient access only.
             }
         }
 
@@ -579,7 +748,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ============ DOCK ============
+    // ====================================================================
+    // DOCK
+    // ====================================================================
 
     private fun initDock() {
         applyDockHeight()
@@ -730,7 +901,7 @@ class MainActivity : AppCompatActivity() {
             params.weight = dockPercent.toFloat()
             dockContainer.layoutParams = params
         }
-        centerColumn.requestLayout()
+        homePage.requestLayout()
         updateRecentTileHeight()
     }
 
@@ -785,21 +956,24 @@ class MainActivity : AppCompatActivity() {
         return (value * resources.displayMetrics.density).roundToInt()
     }
 
-    // ============ TASK LISTENER ============
+    // ====================================================================
+    // TASK LISTENER
+    // ====================================================================
 
     private fun registerTaskListener() {
         if (taskListenerRegistration == null) {
-            taskListenerRegistration = recentTasksRepository.registerTaskChangeListener { snapshotTaskId ->
-                runOnUiThread {
-                    if (snapshotTaskId != null) {
-                        pendingSnapshotRefreshes.add(snapshotTaskId)
-                    }
-                    if (pollingActive) {
-                        refreshRecentTasks()
-                        refreshPendingSnapshots()
+            taskListenerRegistration =
+                recentTasksRepository.registerTaskChangeListener { snapshotTaskId ->
+                    runOnUiThread {
+                        if (snapshotTaskId != null) {
+                            pendingSnapshotRefreshes.add(snapshotTaskId)
+                        }
+                        if (pollingActive) {
+                            refreshRecentTasks()
+                            refreshPendingSnapshots()
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -815,11 +989,11 @@ class MainActivity : AppCompatActivity() {
         taskListenerRegistration = null
     }
 
-    // ============ TODAY SECTION ============
+    // ====================================================================
+    // CLOCK / WEATHER / TODAY
+    // ====================================================================
 
     private fun initClock() {
-        clockTime = findViewById<TextView>(R.id.clockTime)!!
-        clockMeta = findViewById<TextView>(R.id.clockMeta)!!
         refreshClock()
     }
 
@@ -830,8 +1004,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initWeather() {
-        weatherSummary = findViewById<TextView>(R.id.weatherSummary)!!
-        findViewById<View>(R.id.weatherContainer)!!.setOnClickListener { showWeatherSettings() }
+        findViewById<View>(R.id.weatherContainer)!!.setOnClickListener {
+            showWeatherSettings()
+        }
         weatherObserver = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
                 refreshWeather()
@@ -867,10 +1042,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun showWeatherSettings() {
         try {
-            startActivity(Intent().setClassName(OMNIJAWS_PACKAGE, OMNIJAWS_SETTINGS_ACTIVITY))
+            startActivity(
+                Intent().setClassName(OMNIJAWS_PACKAGE, OMNIJAWS_SETTINGS_ACTIVITY)
+            )
         } catch (e: Exception) {
             Log.w("HomeLauncher", "Unable to open OmniJaws settings", e)
-            Toast.makeText(this, getString(R.string.weather_unavailable), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(R.string.weather_unavailable),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -879,9 +1060,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initToday() {
-        todayDate = findViewById<TextView>(R.id.todayDate)!!
-        todayEvent = findViewById<TextView>(R.id.todayEvent)!!
-        todayTasks = findViewById<TextView>(R.id.todayTasks)!!
         todayDate.setOnClickListener { openCalendarDay() }
         todayEvent.setOnClickListener { todayEventId?.let { openCalendarEvent(it) } }
         todayTasks.setOnClickListener { todayTaskEventId?.let { openCalendarEvent(it) } }
@@ -914,9 +1092,9 @@ class MainActivity : AppCompatActivity() {
             cal.set(Calendar.SECOND, 59)
             val dayEnd = cal.timeInMillis
 
-            val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon().also { builder ->
-                ContentUris.appendId(builder, dayStart)
-                ContentUris.appendId(builder, dayEnd)
+            val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon().also {
+                ContentUris.appendId(it, dayStart)
+                ContentUris.appendId(it, dayEnd)
             }.build()
 
             val cursor = resolver.query(
@@ -939,11 +1117,13 @@ class MainActivity : AppCompatActivity() {
                     val eventId = it.getLong(0)
                     val title = it.getString(1) ?: "Event"
                     val start = it.getLong(2)
-                    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(start))
+                    val time = SimpleDateFormat("h:mm a", Locale.getDefault())
+                        .format(Date(start))
                     if (todayEventId == null) todayEventId = eventId
                     events.add("$time $title")
                 }
-                todayEvent.text = if (events.isEmpty()) "No events today" else events.joinToString("\n")
+                todayEvent.text =
+                    if (events.isEmpty()) "No events today" else events.joinToString("\n")
             }
         } catch (e: Exception) {
             Log.e("HomeLauncher", "Calendar event query failed", e)
@@ -954,7 +1134,10 @@ class MainActivity : AppCompatActivity() {
             val resolver = contentResolver
             val cursor = resolver.query(
                 CalendarContract.Reminders.CONTENT_URI,
-                arrayOf(CalendarContract.Reminders.EVENT_ID, CalendarContract.Reminders.MINUTES),
+                arrayOf(
+                    CalendarContract.Reminders.EVENT_ID,
+                    CalendarContract.Reminders.MINUTES
+                ),
                 "${CalendarContract.Reminders.MINUTES} >= 0",
                 null,
                 "${CalendarContract.Reminders.MINUTES} ASC"
@@ -1005,7 +1188,10 @@ class MainActivity : AppCompatActivity() {
         try {
             val intent = Intent(
                 Intent.ACTION_VIEW,
-                ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+                ContentUris.withAppendedId(
+                    CalendarContract.Events.CONTENT_URI,
+                    eventId
+                )
             )
             startActivity(intent)
         } catch (e: Exception) {
@@ -1027,18 +1213,20 @@ class MainActivity : AppCompatActivity() {
         }.getOrNull()
     }
 
-    // ============ SYSTEM STATS ============
+    // ====================================================================
+    // SYSTEM STATS
+    // ====================================================================
 
-    private fun initStatsBar() {
+    private fun initHomeStatsBar() {
         statsBar = SystemStatsBar(
             context = this,
-            batteryView = findViewById<TextView>(R.id.statBattery)!!,
-            ramView = findViewById<TextView>(R.id.statRam)!!,
-            cpuView = findViewById<TextView>(R.id.statCpu)!!,
-            tempView = findViewById<TextView>(R.id.statTemp)!!,
-            storageView = findViewById<TextView>(R.id.statStorage)!!
+            batteryView = homePage.findViewById<TextView>(R.id.statBattery)!!,
+            ramView = homePage.findViewById<TextView>(R.id.statRam)!!,
+            cpuView = homePage.findViewById<TextView>(R.id.statCpu)!!,
+            tempView = homePage.findViewById<TextView>(R.id.statTemp)!!,
+            storageView = homePage.findViewById<TextView>(R.id.statStorage)!!
         )
 
-        findViewById<LinearLayout>(R.id.statusStatsCenter)!!.isClickable = false
+        homePage.findViewById<LinearLayout>(R.id.statusStatsCenter)!!.isClickable = false
     }
 }
