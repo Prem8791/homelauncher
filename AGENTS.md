@@ -80,11 +80,11 @@ Do not assume every change should be pushed to GitHub or installed on the device
 Cloud VM:
 ```
 project: customrom-501702
-zone: us-south1-b
-instance: instance-20260707-045005
+zone: us-south1-a
+instance: instance-20260710-230647
 user: premanandal1978
-ROM root: /home/premanandal1978/android/bliss-I001D
-HomeLauncher path: /home/premanandal1978/android/bliss-I001D/packages/apps/HomeLauncher
+ROM root: /home/premanandal1978/android/waterlily
+HomeLauncher path: /home/premanandal1978/android/waterlily/packages/apps/HomeLauncher
 ```
 
 Local `gcloud` path:
@@ -110,11 +110,11 @@ For compatibility-sensitive Kotlin changes, run:
 ```
 4. Sync only the changed source/resource files to the matching paths under:
 ```
-/home/premanandal1978/android/bliss-I001D/packages/apps/HomeLauncher
+/home/premanandal1978/android/waterlily/packages/apps/HomeLauncher
 ```
 5. Stop and hand the following AOSP platform build commands to the user. Do not run them:
 ```
-cd ~/android/bliss-I001D
+cd ~/android/waterlily
 source build/envsetup.sh
 lunch bliss_I001D-ap2a-userdebug
 m HomeLauncher
@@ -122,7 +122,7 @@ m HomeLauncher
 6. Wait for the user to confirm that the VM build completed.
 7. For path 3, download the rebuilt platform APK:
 ```
-gcloud compute scp --project customrom-501702 --zone us-south1-b premanandal1978@instance-20260707-045005:/home/premanandal1978/android/bliss-I001D/out/target/product/I001D/system/priv-app/HomeLauncher/HomeLauncher.apk .\HomeLauncher-system.apk
+gcloud compute scp --project customrom-501702 --zone us-south1-a premanandal1978@instance-20260710-230647:/home/premanandal1978/android/waterlily/out/target/product/I001D/system/priv-app/HomeLauncher/HomeLauncher.apk .\HomeLauncher-system.apk
 ```
 8. Install over the existing system app without flashing:
 ```
